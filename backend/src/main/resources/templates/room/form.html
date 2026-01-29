@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Create Room</title>
+</head>
+<body>
+<h2>새 채팅방 만들기</h2>
+<form action="/chat/room/group/create" method="post">
+    <input type="text" name="roomName" placeholder="방 이름을 입력하세요" required>
+    <button type="submit">생성하기</button>
+</form>
+</body>
+</html>
