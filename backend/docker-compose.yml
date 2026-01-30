@@ -1,0 +1,29 @@
+services:
+  db:
+    image: mysql:latest
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: funchat
+      MYSQL_ROOT_PASSWORD: ${ROOT_PW}
+      MYSQL_USER: ${USER_ID}
+      MYSQL_PASSWORD: ${USER_PW}
+    volumes:
+      # 현재 폴더에 mysql_data 폴더를 만들어 데이터를 저장. /var/lib/mysql <-- MySQL 리눅스 표준 데이터 저장 경로
+      - ./mysql_data:/var/lib/mysql
+
+  app:
+    image: ${DOCKER_IMAGE}:latest
+    container_name: spring-app
+    restart: always
+    environment:
+      # DB 서비스 이름인 'db'를 주소로 사용하여 내부 통신합니다.
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      SPRING_DATASOURCE_USERNAME: ${USER_ID}
+      SPRING_DATASOURCE_PASSWORD: ${USER_PW}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8080:8080"
+    # DB가 먼저 실행된 후 앱이 뜨도록 순서를 보장합니다.
+    depends_on:
+      - db
