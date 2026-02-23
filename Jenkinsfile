@@ -17,7 +17,17 @@ pipeline {
             }
         }
         
-        stage('2. Spring Boot Build') {
+        stage('2. SonarQube Analysis') {
+            steps {
+                dir('backend') { // 소스 코드가 있는 디렉토리로 이동
+                    withSonarQubeEnv('sonar-server') { 
+                        sh "./gradlew sonar"
+                    }
+                }
+            }
+        }
+        
+        stage('3. Spring Boot Build') {
             steps {
                 dir('backend') {
                     script {
@@ -27,7 +37,7 @@ pipeline {
             }
         }
         
-        stage('3. Docker Push') {
+        stage('4. Docker Push') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
@@ -38,7 +48,7 @@ pipeline {
             }
         }
 
-        stage('4. EC2 Deploy') {
+        stage('5. EC2 Deploy') {
             steps {
                 sshagent(credentials: ["${AWS_CREDS}"]) {
                     script {
