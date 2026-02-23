@@ -1,5 +1,6 @@
 package com.funchat.demo.controller;
 
+import lombok.Builder;
 import lombok.Data;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -25,7 +26,11 @@ public class ChatController {
     @PostMapping("/room/group/create")
     public String createGroupRoom(@RequestParam String roomName) {
         UUID roomId = UUID.randomUUID();
-        GroupRoom newRoom = new GroupRoom(roomId, roomName);
+        GroupRoom newRoom = GroupRoom.builder()
+                .roomId(roomId.toString())
+                .roomName(roomName)
+                .build();
+
         roomMap.put(roomId, newRoom);
 
         // 생성 후 상세 페이지로 리다이렉트
@@ -47,13 +52,9 @@ public class ChatController {
 
     // 테스트용 내부 클래스 (DTO)
     @Data
+    @Builder
     public static class GroupRoom {
-        private UUID roomId;
+        private String roomId;
         private String roomName;
-
-        public GroupRoom(UUID roomId, String roomName) {
-            this.roomId = roomId;
-            this.roomName = roomName;
-        }
     }
 }
