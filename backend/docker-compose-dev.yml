@@ -1,0 +1,33 @@
+services:
+  rdb:
+    image: mysql:latest
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: funchat
+      MYSQL_ROOT_PASSWORD: ${ROOT_PW}
+      MYSQL_USER: ${USER_ID}
+      MYSQL_PASSWORD: ${USER_PW}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+  nosql:
+    image: mongo:latest
+    container_name: mongo-db
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: funchat
+      MONGO_INITDB_ROOT_USERNAME: ${USER_ID}
+      MONGO_INITDB_ROOT_PASSWORD: ${USER_PW}
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo_data:/data/db
+  redis:
+    image: redis:latest
+    container_name: redis-dev
+    restart: always
+    ports:
+      - "6379:6379" # 로컬 호스트에서 Redis 접속 가능
+    command: redis-server --appendonly yes # 데이터 유실 방지를 위해 AOF 모드 활성화
