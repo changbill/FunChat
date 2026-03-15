@@ -41,4 +41,10 @@ out/
 
 # MySQL
 mysql_data
->>>>>>> feature
+
+# MongoDB
+mongo_data
+
+# Redis
+redis_data
+redis_insight_data
