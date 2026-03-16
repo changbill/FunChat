@@ -18,7 +18,7 @@ public class StompChatController {
     @MessageMapping("/send/{roomId}")
     public void sendChatMessage(@DestinationVariable(value = "roomId") String roomId, @Payload ChatMessageRequest request) {
         log.info(">>>> [STOMP Controller] Received message for room {}: {}", roomId, request);
-        messageBrokerChatService.sendChatMessage(roomId, request.message());
+        messageBrokerChatService.sendChatMessageToRedisStreams(roomId, request.message());
         log.info(">>>> [STOMP Controller] Handled message for room {}", roomId);
     }
 }

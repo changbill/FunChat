@@ -5,16 +5,11 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Builder
-public record MessageResponse(
-        long messageId,
+public record RedisStreamsMessageDto(
         long roomId,
         long senderId,
         String senderNickname,
         String message,
         LocalDateTime createdAt
 ) {
-
-    public long getMessageId() {
-        return messageId;
-    }
 }

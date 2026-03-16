@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.Limit;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
@@ -16,6 +19,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -42,7 +46,7 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
                 .in(topic)
                 .ofObject(fieldMap);
 
-        redisTemplate.opsForStream().add(record);   // 레디스 스트림에 해당 레코드 발행
+        redisTemplate.opsForStream().add(record);// 레디스 스트림에 해당 레코드 발행
     }
 
     @Override
@@ -57,7 +61,35 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
         container.receive(StreamOffset.latest(topic), message -> {
             handler.handle(message.getValue());
         });
+
         container.start();
+    }
+
+    /**
+     * "-"는 스트림의 시작, "(" + cursorId 는 해당 ID를 제외한 미만(Exclusive)을 의미
+     * REVRANGE는 최신 -> 과거 순으로 읽어옵니다.
+     */
+    public List<MapRecord<String, String, String>> fetchMessagesBefore(String topic, String cursorId, int size) {
+        String endId = (cursorId == null || cursorId.isEmpty()) ? "+" : "(" + cursorId;
+        // todo: <String,String> 제네릭 관련 에러 있나 확인
+        // XRANGE topic - (cursorId) count size
+        return redisTemplate.<String, String>opsForStream().reverseRange(
+                topic,
+                Range.closed("-", endId),
+                Limit.limit().count(size)
+        );
+    }
+
+    public long getStreamSize(String topic) {
+        return redisTemplate.opsForStream().size(topic);
+    }
+
+//    public List<MapRecord<String, String, String>> fetchForFlush(String topic, int count) {
+//        return redisTemplate.opsForStream().range(topic, Range.unbounded(), );
+//    }
+
+    public void trim(String topic, int keepCount) {
+        redisTemplate.opsForStream().trim(topic, keepCount);
     }
 
     public TaskExecutor streamTaskExecutor() {
