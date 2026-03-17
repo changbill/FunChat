@@ -1,49 +1,43 @@
 package com.funchat.demo.global.exception;
 
 import com.funchat.demo.global.dto.ResponseDto;
+import com.funchat.demo.util.ResponseUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static com.funchat.demo.util.ResponseUtil.createErrorResponse;
-
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    private static final String ERROR_MESSAGE = "에러 발생 : {}";
-    private static final String FIELD = "field";
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ResponseDto> handleBusinessException(BusinessException e) {
+        ErrorCode code = e.errorCode();
+        log.warn("비즈니스 예외가 발생했습니다. code={}, message={}", code, e.getMessage());
+        return ResponseUtil.createErrorResponse(code, e.getMessage());
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ResponseDto> handleValidationException(MethodArgumentNotValidException ex) {
-        FieldError fieldError = ex.getBindingResult().getFieldErrors().get(0);
-
-        Map<String, String> fieldInfo = new HashMap<>();
-        fieldInfo.put(FIELD, fieldError.getField());
-
-        log.warn(ERROR_MESSAGE, ex.getMessage(), ex);
-        return createErrorResponse(
-                ErrorCode.VALIDATION_FAILED,
-                fieldError.getDefaultMessage(),
-                fieldInfo
-        );
+    public ResponseEntity<ResponseDto> handleValidationException(MethodArgumentNotValidException e) {
+        ErrorCode code = ErrorCode.INVALID_REQUEST;
+        log.warn("요청 검증 예외가 발생했습니다. message={}", e.getMessage());
+        return ResponseUtil.createErrorResponse(code, e.getBody());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ResponseDto> handleHttpMessageNotReadableException(HttpMessageNotReadableException ex) {
-        log.warn(ERROR_MESSAGE, ex.getMessage(), ex);
-        return createErrorResponse(ErrorCode.BAD_REQUEST, null);
+    public ResponseEntity<ResponseDto> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        ErrorCode code = ErrorCode.INVALID_REQUEST; // JSON 파싱 실패 등
+        log.warn("메시지 읽기 실패: message={}", e.getMessage());
+        return ResponseUtil.createErrorResponse(code, null);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ResponseDto> handleException(Exception ex) {
-        log.error(ERROR_MESSAGE, ex.getMessage(), ex);
-        return createErrorResponse(ErrorCode.SERVER_ERROR, null);
+    public ResponseEntity<ResponseDto> handleException(Exception e) {
+        ErrorCode code = ErrorCode.INTERNAL_ERROR; // "예상치 못한 오류가 발생했습니다."
+        log.error("서버 내부 오류 발생: message={}", e.getMessage(), e);
+        return ResponseUtil.createErrorResponse(code, null);
     }
 }
