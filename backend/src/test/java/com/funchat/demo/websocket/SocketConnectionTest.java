@@ -1,7 +1,7 @@
 package com.funchat.demo.websocket;
 
 import com.funchat.demo.TestContainerTest;
-import com.funchat.demo.chat.domain.ChatMessageRepository;
+import com.funchat.demo.chat.domain.MessageRepository;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,7 +35,7 @@ class SocketConnectionTest extends TestContainerTest {
     private int port;
 
     @MockitoBean
-    private ChatMessageRepository chatMessageRepository; // 자동으로 기존 빈을 대체
+    private MessageRepository messageRepository; // 자동으로 기존 빈을 대체
 
     private WebSocketStompClient stompClient;
     private WebSocketStompClient stompClient2;
