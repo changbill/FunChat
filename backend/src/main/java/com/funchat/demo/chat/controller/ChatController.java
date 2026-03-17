@@ -12,28 +12,22 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import static com.funchat.demo.chat.domain.ChatConstants.MESSAGE_UNITS_TO_RECEIVE;
+import static com.funchat.demo.global.constants.ChatConstants.MESSAGE_UNITS_TO_RECEIVE;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
 public class ChatController {
+
     private final ChatService chatService;
-    private final MessageBrokerChatService messageBrokerChatService;
-    private final SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/chat/messages/{roomId}")
     public ResponseEntity<ResponseDto> getChatMessages(
-            @PathVariable String roomId,
-            @RequestParam(required = false) String cursorId
+            @PathVariable Long roomId,
+            @RequestParam(required = false) String cursorId,
+            @RequestParam(required = false) Integer size
     ) {
-        List<MessageResponse> previousMessage = messageBrokerChatService.getPreviousMessage(
-                roomId,
-                cursorId,
-                MESSAGE_UNITS_TO_RECEIVE
-        );
-
-        return ResponseUtil.createSuccessResponse(previousMessage);
+        return ResponseUtil.createSuccessResponse(chatService.getMessages(roomId,cursorId,size));
     }
 
 }

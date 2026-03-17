@@ -1,6 +1,6 @@
 package com.funchat.demo.chat.controller;
 
-import com.funchat.demo.chat.domain.dto.ChatMessageRequest;
+import com.funchat.demo.chat.domain.dto.MessageRequest;
 import com.funchat.demo.chat.service.MessageBrokerChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ public class StompChatController {
     private final MessageBrokerChatService messageBrokerChatService;
 
     @MessageMapping("/send/{roomId}")
-    public void sendChatMessage(@DestinationVariable(value = "roomId") String roomId, @Payload ChatMessageRequest request) {
+    public void sendChatMessage(@DestinationVariable(value = "roomId") String roomId, @Payload MessageRequest request) {
         log.info(">>>> [STOMP Controller] Received message for room {}: {}", roomId, request);
         messageBrokerChatService.sendChatMessageToRedisStreams(roomId, request.message());
         log.info(">>>> [STOMP Controller] Handled message for room {}", roomId);

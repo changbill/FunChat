@@ -70,7 +70,7 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
      * REVRANGE는 최신 -> 과거 순으로 읽어옵니다.
      */
     public List<MapRecord<String, String, String>> fetchMessagesBefore(String topic, String cursorId, int size) {
-        String endId = (cursorId == null || cursorId.isEmpty()) ? "+" : "(" + cursorId;
+        String endId = (cursorId == null || cursorId.isEmpty()) ? "+" : "(" + cursorId; // cursorId가 비어있다면 최신부터
         // todo: <String,String> 제네릭 관련 에러 있나 확인
         // XRANGE topic - (cursorId) count size
         return redisTemplate.<String, String>opsForStream().reverseRange(

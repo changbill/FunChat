@@ -1,6 +1,6 @@
 package com.funchat.demo.chat.domain.dto;
 
-public record ChatMessageRequest(
+public record MessageRequest(
     String message
 ) {
 }
