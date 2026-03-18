@@ -1,4 +1,4 @@
 package com.funchat.demo.global.dto;
 
-public record ResponseDto(int code, String message, Object body) {
+public record ResponseDto(Integer code, String message, Object body) {
 }

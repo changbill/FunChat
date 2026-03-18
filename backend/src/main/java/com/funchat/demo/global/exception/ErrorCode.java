@@ -27,11 +27,29 @@ public enum ErrorCode {
     ROOM_USER_BANNED(HttpStatus.FORBIDDEN, "강퇴당한 방에는 다시 입장할 수 없습니다."),
     ROOM_USER_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "참여 가능한 최대 방 개수를 초과했습니다."),
 
+    // ACCESS TOKEN
+    INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 Access 토큰입니다."),
+    EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "만료된 Access 토큰입니다."),
+    UNSUPPORTED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "지원되지 않는 Access 토큰 형식입니다."),
+    ACCESS_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "Access 토큰이 존재하지 않습니다."),
+
+    // REFRESH TOKEN
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."),
+    EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "만료된 리프레시 토큰입니다."),
+    UNSUPPORTED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "지원되지 않는 리프레시 토큰 형식입니다."),
+    REFRESH_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "리프레시 토큰이 존재하지 않습니다."),
+
+    // 회원가입
+    EMAILS_ALREADY_EXIST(HttpStatus.BAD_REQUEST, "이미 존재하는 이메일입니다."),
+
+    // 로그인
+    EMAIL_NOT_FOUND(HttpStatus.NOT_FOUND,"가입되지 않은 이메일입니다."),
+    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
+
     // 인증/인가
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     OAUTH2_AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "소셜 로그인 인증에 실패했습니다."),
-    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."),
-    REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "만료된 리프레시 토큰입니다."),
+
 
     // 메시지
     MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지를 찾을 수 없습니다."),

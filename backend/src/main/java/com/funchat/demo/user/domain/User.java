@@ -26,10 +26,7 @@ public class User extends BaseTimeEntity {
     private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
-    private UserRole role; // ROLE_USER, ROLE_ADMIN
-
-    @Enumerated(EnumType.STRING)
-    private SocialType socialType; // LOCAL, GOOGLE, KAKAO
+    private SocialType socialType = SocialType.LOCAL; // TODO: 나머지 GOOGLE, KAKAO 소셜 로그인 구현
 
     @Enumerated(EnumType.STRING)
     private UserStatus status; // ONLINE, OFFLINE 등
