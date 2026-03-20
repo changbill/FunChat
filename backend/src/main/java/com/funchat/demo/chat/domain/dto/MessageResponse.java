@@ -1,6 +1,6 @@
 package com.funchat.demo.chat.domain.dto;
 
-import com.funchat.demo.chat.domain.Message;
+import com.funchat.demo.chat.domain.ChatMessage;
 import lombok.Builder;
 import org.springframework.data.annotation.Id;
 
@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 
 @Builder
 public record MessageResponse(
-        @Id
         String messageId,
         long roomId,
         long senderId,
@@ -16,14 +15,14 @@ public record MessageResponse(
         String content,
         LocalDateTime createdAt
 ) {
-    public static MessageResponse from(Message message) {
+    public static MessageResponse from(ChatMessage chatMessage) {
         return MessageResponse.builder()
-                .messageId(message.getId())
-                .roomId(message.getRoomId())
-                .senderId(message.getSenderId())
-                .senderNickname(message.getSenderNickname())
-                .content(message.getContent())
-                .createdAt(message.getCreatedAt())
+                .messageId(chatMessage.getId())
+                .roomId(chatMessage.getRoomId())
+                .senderId(chatMessage.getSenderId())
+                .senderNickname(chatMessage.getSenderNickname())
+                .content(chatMessage.getContent())
+                .createdAt(chatMessage.getCreatedAt())
                 .build();
     }
 }

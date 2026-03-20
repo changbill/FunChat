@@ -10,7 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
-@Document(collection = "messages")
+@Document(collection = "chat_message")
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -27,7 +27,7 @@ public class ChatMessage implements Serializable {
     private String content;
 
     @Enumerated(EnumType.STRING)
-    private MessageType type; // TEXT, IMAGE, SYSTEM 등
+    private MessageType type; // TEXT, IMAGE, JOIN, LEAVE 등
 
     private LocalDateTime createdAt;
 

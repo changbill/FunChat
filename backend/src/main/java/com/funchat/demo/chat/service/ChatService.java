@@ -1,24 +1,23 @@
 package com.funchat.demo.chat.service;
 
-import com.funchat.demo.chat.domain.Message;
+import com.funchat.demo.chat.domain.ChatMessage;
 import com.funchat.demo.chat.domain.MessageRepository;
+import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.domain.dto.ChatHistoryResponse;
 import com.funchat.demo.chat.domain.dto.MessageResponse;
-import com.funchat.demo.util.ResponseUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import static com.funchat.demo.global.constants.ChatConstants.ROOM_ID;
+import static com.funchat.demo.global.constants.ChatConstants.*;
+import static com.funchat.demo.global.constants.ChatConstants.MESSAGE;
 
 @Service
 @RequiredArgsConstructor
@@ -26,45 +25,40 @@ import static com.funchat.demo.global.constants.ChatConstants.ROOM_ID;
 public class ChatService {
 
     private final MessageRepository messageRepository;
-    private final MessageBrokerChatService messageBrokerChatService;
 
-    public ChatHistoryResponse getMessages(Long roomId, String cursorId, Integer size) {
-        List<MessageResponse> messages = messageBrokerChatService.getMessage(roomId,cursorId,size);
+    public void saveMessageToMongo(Map<String, String> messageMap) {
+        ChatMessage message = ChatMessage.builder()
+                .roomId(Long.parseLong(messageMap.get(ROOM_ID)))
+                .senderId(Long.parseLong(messageMap.get(SENDER_ID)))
+                .senderNickname(messageMap.get(SENDER_NICKNAME))
+                .content(messageMap.get(MESSAGE))
+                .type(MessageType.valueOf(messageMap.get(MESSAGE_TYPE)))
+                .build();
 
-        boolean hasNext;
-        if (messages.size() < size) {
-            int remainingNeeded = size - messages.size();
-            hasNext = addMongoMessages(roomId, cursorId, remainingNeeded, messages);
-        } else {
-            hasNext = true;
-        }
-
-        String nextCursorId = messages.isEmpty() ? null : messages.get(messages.size() - 1).messageId();
-
-        return ChatHistoryResponse.of(messages, nextCursorId, hasNext);
+        messageRepository.save(message);
     }
 
-    private boolean addMongoMessages(Long roomId, String cursorId, int remainingNeeded, List<MessageResponse> messages) {
-        String nextCursorId = messages.isEmpty() ? cursorId : messages.get(messages.size() - 1).messageId();
+    public ChatHistoryResponse getMessages(Long roomId, String cursorId, Integer size) {
+        Pageable pageable = PageRequest.of(0, size, Sort.by(Sort.Direction.DESC, "_id"));
 
-        Pageable pageable = PageRequest.of(0, remainingNeeded + 1, Sort.by(Sort.Direction.DESC, "_id"));
-
-        List<Message> mongoMessages;
-        if (nextCursorId == null) {
-            mongoMessages = messageRepository.findByRoomId(roomId, pageable);
+        Slice<ChatMessage> mongoChatMessages;
+        if (cursorId == null) {
+            mongoChatMessages = messageRepository.findByRoomId(roomId, pageable);
         } else {
-            mongoMessages = messageRepository.findByRoomIdAndIdLessThan(roomId, nextCursorId, pageable);
+            mongoChatMessages = messageRepository.findByRoomIdAndIdLessThan(roomId, cursorId, pageable);
         }
 
-        boolean hasMore = mongoMessages.size() > remainingNeeded;
+        String nextCursorId =
+                mongoChatMessages.hasNext() ?
+                mongoChatMessages.getContent().get(mongoChatMessages.getNumberOfElements() - 1).getId() :
+                null;
 
-        List<MessageResponse> toAdd = mongoMessages.stream()
-                .limit(remainingNeeded)
-                .map(MessageResponse::from)
-                .toList();
-
-        messages.addAll(toAdd);
-
-        return hasMore;
+        return ChatHistoryResponse.of(
+                mongoChatMessages.getContent().stream()
+                        .map(MessageResponse::from)
+                        .toList(),
+                nextCursorId,
+                mongoChatMessages.hasNext()
+        );
     }
 }
