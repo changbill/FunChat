@@ -7,6 +7,6 @@ public class ChatConstants {
     public static final String SENDER_ID = "senderId";
     public static final String SENDER_NICKNAME = "senderNickname";
     public static final String MESSAGE = "message";
-    public static final String CREATED_AT = "createdAt";
+    public static final String MESSAGE_TYPE = "messageType";
     public static final String SUBSCRIPTION_URL = "/sub/chat/";
 }
