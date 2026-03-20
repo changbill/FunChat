@@ -1,19 +1,15 @@
 package com.funchat.demo.chat.service;
 
-import com.funchat.demo.chat.domain.MessageRepository;
-import com.funchat.demo.chat.domain.dto.MessageResponse;
+import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.domain.dto.RedisStreamsMessageDto;
 import com.funchat.demo.chat.service.redis.RedisMessageBrokerAdapter;
+import com.funchat.demo.global.constants.SystemConstants;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 
 import static com.funchat.demo.global.constants.ChatConstants.*;
 
@@ -23,53 +19,49 @@ public class MessageBrokerChatService {
 
     private final RedisMessageBrokerAdapter messageBrokerAdapter;
     private final SimpMessagingTemplate messagingTemplate;
-    private final MessageRepository messageRepository;
+    private final ChatService chatService;
 
-    // 스프링 생명주기 상 빈 주입을 모두 마친 직후에 실행할 로직
+    // 빈 주입을 모두 마친 직후에 실행할 로직
     @PostConstruct
     public void init() {
-        // messageHandler: 메시지 받은 후 실행될 콜백 함수
+        // 메시지 브로커에서 STREAM_TOPIC, CONSUMER_GROUP를 기준으로 메시지 구독
         messageBrokerAdapter.subscribe(STREAM_TOPIC, CONSUMER_GROUP, message -> {
             String roomId = message.get(ROOM_ID);
-            messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, message);
+
             // 웹소켓으로 /sub/chat/ + roomId를 구독하고 있는 뷰단에 메시지 전송
+            messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, message);
+            // TODO: mongoDB에 저장하는 중 오류가 발생하면 재시도(Retry) 로직 실행
+            chatService.saveMessageToMongo(message);
         });
     }
 
-    public void sendChatMessageToRedisStreams(String roomId, String inputMessage) {
+    public void sendChatMessageToRedisStreams(Long roomId, Long senderId, String nickname, String inputMessage) {
         RedisStreamsMessageDto message = RedisStreamsMessageDto.builder()
-                .roomId(Long.parseLong(roomId))
-                .senderId(1L)   // todo: 임시 유저 정보
-                .senderNickname("User")
-                .message(inputMessage)
+                .roomId(roomId)
+                .senderId(senderId)     // 인증된 유저 ID 주입
+                .senderNickname(nickname) // 인증된 유저 닉네임 주입
+                .content(inputMessage)
+                .type(MessageType.TEXT)
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        // 모든 채팅방 공통 토픽, roomId로 채팅방 구분
         messageBrokerAdapter.publish(STREAM_TOPIC, message);
     }
 
-    public List<MessageResponse> getMessage(Long roomId, String cursorId, Integer size) {
-        List<MessageResponse> combinedResults = new ArrayList<>();
-        // 1. Redis Stream에서 cursorId보다 작은(이전) 데이터 조회
-        List<MapRecord<String, String, String>> redisRecords =
-                messageBrokerAdapter.fetchMessagesBefore(STREAM_TOPIC, cursorId, size);
+    public void sendNoticeToRedisStreams(Long roomId, String nickname, MessageType type) {
+        String content = (type == MessageType.JOIN)
+                ? nickname + SystemConstants.ENTER_MENTION
+                : nickname + SystemConstants.EXIT_MENTION;
 
-        for (var record : redisRecords) {
-            combinedResults.add(convertToDto(record.getId().getValue(), record.getValue()));
-        }
-
-        return combinedResults;
-    }
-
-    private MessageResponse convertToDto(String id, Map<String, String> map) {
-        return MessageResponse.builder()
-                .messageId(id)
-                .roomId(Long.parseLong(map.get(ROOM_ID)))
-                .senderId(Long.parseLong(map.get(SENDER_ID)))
-                .senderNickname(map.get(SENDER_NICKNAME))
-                .content(map.get(MESSAGE))
-                .createdAt(LocalDateTime.parse(map.get(CREATED_AT)))
+        RedisStreamsMessageDto message = RedisStreamsMessageDto.builder()
+                .roomId(roomId)
+                .senderId(SystemConstants.USER_ID) // 시스템 계정 ID
+                .senderNickname(SystemConstants.USER_NICKNAME)
+                .content(content)
+                .type(type) // JOIN 또는 LEAVE
+                .createdAt(LocalDateTime.now())
                 .build();
+
+        messageBrokerAdapter.publish(STREAM_TOPIC, message);
     }
 }
