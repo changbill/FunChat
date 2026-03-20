@@ -11,6 +11,7 @@ import org.springframework.data.redis.connection.Limit;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.connection.stream.*;
+import org.springframework.data.redis.connection.stream.Record;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -21,6 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+
+import static com.funchat.demo.global.constants.ChatConstants.ROOM_ID;
 
 @Component
 @Primary
@@ -63,33 +66,6 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
         });
 
         container.start();
-    }
-
-    /**
-     * "-"는 스트림의 시작, "(" + cursorId 는 해당 ID를 제외한 미만(Exclusive)을 의미
-     * REVRANGE는 최신 -> 과거 순으로 읽어옵니다.
-     */
-    public List<MapRecord<String, String, String>> fetchMessagesBefore(String topic, String cursorId, int size) {
-        String endId = (cursorId == null || cursorId.isEmpty()) ? "+" : "(" + cursorId; // cursorId가 비어있다면 최신부터
-        // todo: <String,String> 제네릭 관련 에러 있나 확인
-        // XRANGE topic - (cursorId) count size
-        return redisTemplate.<String, String>opsForStream().reverseRange(
-                topic,
-                Range.closed("-", endId),
-                Limit.limit().count(size)
-        );
-    }
-
-    public long getStreamSize(String topic) {
-        return redisTemplate.opsForStream().size(topic);
-    }
-
-//    public List<MapRecord<String, String, String>> fetchForFlush(String topic, int count) {
-//        return redisTemplate.opsForStream().range(topic, Range.unbounded(), );
-//    }
-
-    public void trim(String topic, int keepCount) {
-        redisTemplate.opsForStream().trim(topic, keepCount);
     }
 
     public TaskExecutor streamTaskExecutor() {
