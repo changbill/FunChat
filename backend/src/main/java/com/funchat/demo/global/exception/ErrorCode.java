@@ -29,6 +29,7 @@ public enum ErrorCode {
 
     // ACCESS TOKEN
     INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 Access 토큰입니다."),
+    ALREADY_LOGOUT_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "이미 로그아웃된 토큰입니다."),
     EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "만료된 Access 토큰입니다."),
     UNSUPPORTED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "지원되지 않는 Access 토큰 형식입니다."),
     ACCESS_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "Access 토큰이 존재하지 않습니다."),
@@ -41,6 +42,7 @@ public enum ErrorCode {
 
     // 회원가입
     EMAILS_ALREADY_EXIST(HttpStatus.BAD_REQUEST, "이미 존재하는 이메일입니다."),
+    NICKNAME_ALREADY_EXIST(HttpStatus.BAD_REQUEST, "이미 존재하는 닉네임입니다."),
 
     // 로그인
     EMAIL_NOT_FOUND(HttpStatus.NOT_FOUND,"가입되지 않은 이메일입니다."),
