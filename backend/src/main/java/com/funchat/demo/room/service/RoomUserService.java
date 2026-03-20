@@ -8,6 +8,7 @@ import com.funchat.demo.room.domain.RoomUser;
 import com.funchat.demo.room.domain.RoomUserRepository;
 import com.funchat.demo.room.domain.dto.ParticipantResponse;
 import com.funchat.demo.user.domain.User;
+import com.funchat.demo.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

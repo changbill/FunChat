@@ -10,6 +10,7 @@ import com.funchat.demo.room.domain.dto.RoomRequest;
 import com.funchat.demo.room.domain.Room;
 import com.funchat.demo.room.domain.dto.RoomUpdateRequest;
 import com.funchat.demo.user.domain.User;
+import com.funchat.demo.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +37,6 @@ public class RoomService {
                 .title(request.title())
                 .maxMembers(request.maxMembers())
                 .manager(manager)
-                .createdAt(LocalDateTime.now())
                 .build();
 
         roomRepository.save(room);

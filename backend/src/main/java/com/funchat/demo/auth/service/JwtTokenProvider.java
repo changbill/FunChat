@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -77,9 +78,10 @@ public class JwtTokenProvider {
         return expiration.getTime() - System.currentTimeMillis();
     }
 
-    public void validateAccessToken(String accessToken) {
+    public void validateAccessToken(Optional<String> accessToken) {
         try {
-            Claims payload = Jwts.parser().setSigningKey(key).build().parseClaimsJws(accessToken).getPayload();
+            String token = accessToken.orElseThrow(() -> new BusinessException(ErrorCode.ACCESS_TOKEN_NOT_FOUND));
+            Claims payload = Jwts.parser().setSigningKey(key).build().parseClaimsJws(token).getPayload();
             String type = payload.get("type", String.class);
             if (!TokenType.ACCESS.getValue().equals(type)) {        // Access Token을 탈취해서 Refresh Token인 척 재발급 API 공격 방지
                 throw new BusinessException(ErrorCode.INVALID_ACCESS_TOKEN);
@@ -90,14 +92,15 @@ public class JwtTokenProvider {
             throw new BusinessException(ErrorCode.EXPIRED_ACCESS_TOKEN);
         } catch (UnsupportedJwtException e) {
             throw new BusinessException(ErrorCode.UNSUPPORTED_ACCESS_TOKEN);
-        } catch (IllegalArgumentException e) {      // token이 null인 경우 여기에 해당
+        } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.ACCESS_TOKEN_NOT_FOUND);
         }
     }
 
-    public void validateRefreshToken(String refreshToken) {
+    public void validateRefreshToken(Optional<String> refreshToken) {
         try {
-            Claims payload = Jwts.parser().setSigningKey(key).build().parseClaimsJws(refreshToken).getPayload();
+            String token = refreshToken.orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND));
+            Claims payload = Jwts.parser().setSigningKey(key).build().parseClaimsJws(token).getPayload();
             String type = payload.get("type", String.class);
             if (!TokenType.REFRESH.getValue().equals(type)) {       // Access Token을 탈취해서 Refresh Token인 척 재발급 API 공격 방지
                 throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
@@ -108,7 +111,7 @@ public class JwtTokenProvider {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         } catch (UnsupportedJwtException e) {
             throw new BusinessException(ErrorCode.UNSUPPORTED_REFRESH_TOKEN);
-        } catch (IllegalArgumentException e) {      // token이 null인 경우 여기에 해당
+        } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
         }
     }

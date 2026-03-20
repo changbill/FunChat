@@ -3,6 +3,7 @@ package com.funchat.demo.auth.service;
 import com.funchat.demo.auth.domain.dto.CustomUserDetails;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
+import com.funchat.demo.user.domain.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
