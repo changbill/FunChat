@@ -1,5 +1,9 @@
 package com.funchat.demo.global.constants;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ChatConstants {
     public static final String STREAM_TOPIC = "chat-stream";
     public static final String CONSUMER_GROUP = "chat-group";

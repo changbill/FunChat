@@ -5,6 +5,9 @@ import com.funchat.demo.chat.domain.MessageRepository;
 import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.domain.dto.ChatHistoryResponse;
 import com.funchat.demo.chat.domain.dto.MessageResponse;
+import com.funchat.demo.global.exception.BusinessException;
+import com.funchat.demo.global.exception.ErrorCode;
+import com.funchat.demo.util.ParseUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +16,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.funchat.demo.global.constants.ChatConstants.*;
@@ -27,13 +29,13 @@ public class ChatService {
     private final MessageRepository messageRepository;
 
     public void saveMessageToMongo(Map<String, String> messageMap) {
-        ChatMessage message = ChatMessage.builder()
-                .roomId(Long.parseLong(messageMap.get(ROOM_ID)))
-                .senderId(Long.parseLong(messageMap.get(SENDER_ID)))
-                .senderNickname(messageMap.get(SENDER_NICKNAME))
-                .content(messageMap.get(MESSAGE))
-                .type(MessageType.valueOf(messageMap.get(MESSAGE_TYPE)))
-                .build();
+        ChatMessage message = ChatMessage.createMessage(
+                ParseUtil.parseLong(messageMap.get(ROOM_ID), new BusinessException(ErrorCode.ROOM_NOT_FOUND, "roomId 형식이 잘못되었습니다.")),
+                ParseUtil.parseLong(messageMap.get(SENDER_ID), new BusinessException(ErrorCode.USER_NOT_FOUND, "senderId 형식이 잘못되었습니다.")),
+                messageMap.get(SENDER_NICKNAME),
+                messageMap.get(MESSAGE),
+                MessageType.valueOf(messageMap.get(MESSAGE_TYPE))
+        );
 
         messageRepository.save(message);
     }
@@ -50,8 +52,8 @@ public class ChatService {
 
         String nextCursorId =
                 mongoChatMessages.hasNext() ?
-                mongoChatMessages.getContent().get(mongoChatMessages.getNumberOfElements() - 1).getId() :
-                null;
+                        mongoChatMessages.getContent().get(mongoChatMessages.getNumberOfElements() - 1).getId() :
+                        null;
 
         return ChatHistoryResponse.of(
                 mongoChatMessages.getContent().stream()

@@ -4,6 +4,8 @@ import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.domain.dto.RedisStreamsMessageDto;
 import com.funchat.demo.chat.service.redis.RedisMessageBrokerAdapter;
 import com.funchat.demo.global.constants.SystemConstants;
+import com.funchat.demo.global.exception.BusinessException;
+import com.funchat.demo.global.exception.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -49,9 +51,13 @@ public class MessageBrokerChatService {
     }
 
     public void sendNoticeToRedisStreams(Long roomId, String nickname, MessageType type) {
-        String content = (type == MessageType.JOIN)
-                ? nickname + SystemConstants.ENTER_MENTION
-                : nickname + SystemConstants.EXIT_MENTION;
+        String content = switch (type) {
+            case MessageType.JOIN -> nickname + SystemConstants.ENTER_MENTION;
+            case MessageType.LEAVE -> nickname + SystemConstants.EXIT_MENTION;
+            case MessageType.DELEGATE -> nickname + SystemConstants.DELEGATION_MENTION;
+            case MessageType.BAN -> nickname + SystemConstants.BAN_MENTION;
+            default -> throw new BusinessException(ErrorCode.MESSAGE_SEND_FAILED, "Invalid message type");
+        };
 
         RedisStreamsMessageDto message = RedisStreamsMessageDto.builder()
                 .roomId(roomId)
