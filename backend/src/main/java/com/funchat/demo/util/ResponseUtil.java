@@ -2,9 +2,12 @@ package com.funchat.demo.util;
 
 import com.funchat.demo.global.dto.ResponseDto;
 import com.funchat.demo.global.exception.ErrorCode;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ResponseUtil {
     private static final String DEFAULT_SUCCESS_MESSAGE = "성공";
     private static final HttpStatus DEFAULT_SUCCESS_STATUS = HttpStatus.OK;
