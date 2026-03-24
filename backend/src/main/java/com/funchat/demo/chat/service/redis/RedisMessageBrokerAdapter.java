@@ -6,12 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.data.domain.Range;
-import org.springframework.data.redis.connection.Limit;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisStringCommands;
 import org.springframework.data.redis.connection.stream.*;
-import org.springframework.data.redis.connection.stream.Record;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -20,10 +16,7 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
-
-import static com.funchat.demo.global.constants.ChatConstants.ROOM_ID;
 
 @Component
 @Primary
@@ -45,11 +38,11 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
 
         Map<String, String> fieldMap = objectMapper.convertValue(message, typeRef);
 
-        ObjectRecord<String, Map<String, String>> record = StreamRecords.newRecord()
+        ObjectRecord<String, Map<String, String>> objectRecord = StreamRecords.newRecord()
                 .in(topic)
                 .ofObject(fieldMap);
 
-        redisTemplate.opsForStream().add(record);// 레디스 스트림에 해당 레코드 발행
+        redisTemplate.opsForStream().add(objectRecord);// 레디스 스트림에 해당 레코드 발행
     }
 
     @Override
@@ -61,9 +54,7 @@ public class RedisMessageBrokerAdapter implements MessageBrokerAdapter {
                 .build();
 
         var container = StreamMessageListenerContainer.create(connectionFactory, options);
-        container.receive(StreamOffset.latest(topic), message -> {
-            handler.handle(message.getValue());
-        });
+        container.receive(StreamOffset.latest(topic), message -> handler.handle(message.getValue()));
 
         container.start();
     }
