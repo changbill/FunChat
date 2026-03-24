@@ -24,6 +24,17 @@ public class StompEventListener {
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        Long roomId = (Long) headerAccessor.getSessionAttributes().get("roomId");
+        Principal principal = headerAccessor.getUser();
+
+        if (roomId != null && principal != null) {
+            var auth = (UsernamePasswordAuthenticationToken) principal;
+            var userDetails = (CustomUserDetails) auth.getPrincipal();
+            String nickname = userDetails.user().getNickname();
+
+            messageBrokerChatService.sendNoticeToRedisStreams(roomId, nickname, MessageType.JOIN);
+            log.info("[입장] User {} join room {}", nickname, roomId);
+        }
         log.info("새로운 세션 연결: {}", headerAccessor.getSessionId());
     }
 
