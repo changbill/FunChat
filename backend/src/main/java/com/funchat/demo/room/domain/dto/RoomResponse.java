@@ -21,7 +21,7 @@ public record RoomResponse(
                 .roomId(room.getId())
                 .title(room.getTitle())
                 .maxMembers(room.getMaxMembers())
-                .currentMembers(room.getRoomUsers().size())
+                .currentMembers(room.getParticipants().size())
                 .managerNickname(room.getManager() != null ? room.getManager().getNickname() : DEFAULT_NICKNAME)
                 .createdAt(room.getCreatedAt())
                 .build();
