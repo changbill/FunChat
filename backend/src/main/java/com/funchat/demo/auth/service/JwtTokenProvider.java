@@ -86,14 +86,10 @@ public class JwtTokenProvider {
             if (!TokenType.ACCESS.getValue().equals(type)) {        // Access Token을 탈취해서 Refresh Token인 척 재발급 API 공격 방지
                 throw new BusinessException(ErrorCode.INVALID_ACCESS_TOKEN);
             }
-        } catch (SecurityException | MalformedJwtException e) {
-            throw new BusinessException(ErrorCode.INVALID_ACCESS_TOKEN);
         } catch (ExpiredJwtException e) {
             throw new BusinessException(ErrorCode.EXPIRED_ACCESS_TOKEN);
-        } catch (UnsupportedJwtException e) {
-            throw new BusinessException(ErrorCode.UNSUPPORTED_ACCESS_TOKEN);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.ACCESS_TOKEN_NOT_FOUND);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_ACCESS_TOKEN);
         }
     }
 
@@ -105,14 +101,10 @@ public class JwtTokenProvider {
             if (!TokenType.REFRESH.getValue().equals(type)) {       // Access Token을 탈취해서 Refresh Token인 척 재발급 API 공격 방지
                 throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
             }
-        } catch (SecurityException | MalformedJwtException e) {
-            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         } catch (ExpiredJwtException e) {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
-        } catch (UnsupportedJwtException e) {
-            throw new BusinessException(ErrorCode.UNSUPPORTED_REFRESH_TOKEN);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(ErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
     }
 }
