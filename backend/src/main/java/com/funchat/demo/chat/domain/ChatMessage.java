@@ -11,9 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Document(collection = "chat_message")
-@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 public class ChatMessage implements Serializable {
     @Id
@@ -31,4 +29,16 @@ public class ChatMessage implements Serializable {
 
     private LocalDateTime createdAt;
 
+    private ChatMessage(Long roomId, Long senderId, String senderNickname, String content, MessageType type) {
+        this.roomId = roomId;
+        this.senderId = senderId;
+        this.senderNickname = senderNickname;
+        this.content = content;
+        this.type = type;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public static ChatMessage createMessage(Long roomId, Long senderId, String senderNickname, String content, MessageType type) {
+        return new ChatMessage(roomId, senderId, senderNickname, content, type);
+    }
 }
