@@ -87,20 +87,24 @@ public class ControllerLoggingAspect {
         List<String> logParams = new ArrayList<>();
         for (int i = 0; i < paramNames.length && i < args.length; i++) {
             Object value = args[i];
-            if (value == null) {
-                continue;
-            }
-
             String name = paramNames[i];
             Parameter parameter = i < parameters.length ? parameters[i] : null;
-            if (parameter != null && parameter.isAnnotationPresent(LogMask.class)) {
-                logParams.add(name + "=[PROTECTED]");
-                continue;
-            }
-            logParams.add(formatValue(name, value));
+            appendParameterLog(value, parameter, logParams, name);
         }
 
         return logParams.isEmpty() ? "" : "with [" + String.join(", ", logParams) + "]";
+    }
+
+    private void appendParameterLog(Object value, Parameter parameter, List<String> logParams, String name) {
+        if (value == null) {
+            return;
+        }
+
+        if (parameter != null && parameter.isAnnotationPresent(LogMask.class)) {
+            logParams.add(name + "=[PROTECTED]");
+            return;
+        }
+        logParams.add(formatValue(name, value));
     }
 
     private String formatValue(String name, Object value) {
