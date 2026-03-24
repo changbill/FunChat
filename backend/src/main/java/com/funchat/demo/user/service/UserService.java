@@ -3,22 +3,19 @@ package com.funchat.demo.user.service;
 import com.funchat.demo.auth.domain.dto.TokenResponse;
 import com.funchat.demo.auth.service.JwtTokenProvider;
 import com.funchat.demo.auth.util.AuthUtil;
+import com.funchat.demo.chat.service.redis.RedisService;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
-import com.funchat.demo.user.domain.SocialType;
 import com.funchat.demo.user.domain.User;
-import com.funchat.demo.user.domain.UserStatus;
 import com.funchat.demo.user.domain.dto.LoginRequest;
 import com.funchat.demo.user.domain.dto.SignUpRequest;
 import com.funchat.demo.user.domain.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -31,7 +28,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, Object> redisTemplate;
+    private final RedisService redisService;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -43,18 +40,17 @@ public class UserService {
             throw new BusinessException(ErrorCode.EMAILS_ALREADY_EXIST);
         }
 
-        if(userRepository.existsByNickname(request.nickname())){
+        if (userRepository.existsByNickname(request.nickname())) {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXIST);
         }
 
         // 비밀번호 암호화 및 유저 저장
-        User user = User.builder()
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .nickname(request.nickname())
-                .status(UserStatus.OFFLINE)
-                .socialType(SocialType.LOCAL)
-                .build();
+        User user = User.createUser(
+                request.email(),
+                passwordEncoder.encode(request.password()),
+                request.nickname(),
+                ""
+        );
 
         userRepository.save(user);
     }
@@ -69,47 +65,40 @@ public class UserService {
 
         String accessToken = jwtTokenProvider.createAccessToken(request.email());
         String refreshToken = jwtTokenProvider.createRefreshToken(request.email());
-
-        redisTemplate.opsForValue().set(
-                "RT:" + user.getEmail(),
-                refreshToken,
-                Duration.ofMillis(refreshExpiration)
-        );
-
+        redisService.saveRefreshToken(user.getEmail(),refreshToken, Duration.ofMillis(refreshExpiration));
         return TokenResponse.loginOf(accessToken, refreshToken, user.getNickname());
     }
 
     public TokenResponse reissue(String refreshToken) {
-        Optional<String> OptionalToken = AuthUtil.resolveToken(refreshToken);
-        jwtTokenProvider.validateRefreshToken(OptionalToken);
+        Optional<String> optionalToken = AuthUtil.resolveToken(refreshToken);
+        jwtTokenProvider.validateRefreshToken(optionalToken);
 
-        String token = OptionalToken.get();
+        String token = optionalToken.get();
         String email = jwtTokenProvider.getEmail(token);
-        String savedRefreshToken = (String) redisTemplate.opsForValue().get("RT:" + email);
+        String savedRefreshToken = redisService.getRefreshToken(email);
+        // 저장된 리프레시 토큰이 다른 경우 탈취되어 이미 이전에 공격자가 재발급 받은 것
+        // 저장된 리프레시 토큰이 없는 경우 위의 경우에서 다시 재발급을 시도한 것
         if (savedRefreshToken == null || !savedRefreshToken.equals(token)) {
-            redisTemplate.delete("RT:" + email);    // 공격 시도로 강제 로그아웃 처리
+            redisService.deleteRefreshToken(email);    // 공격 시도로 강제 로그아웃 처리
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         String newAccessToken = jwtTokenProvider.createAccessToken(email);
         String newRefreshToken = jwtTokenProvider.createRefreshToken(email); // 발급 메서드 필요
-
-        redisTemplate.opsForValue().set("RT:" + email, newRefreshToken, Duration.ofMillis(refreshExpiration));
-
+        redisService.saveRefreshToken(email, newRefreshToken, Duration.ofMillis(refreshExpiration));
         return TokenResponse.reissueOf(newAccessToken, newRefreshToken);
     }
 
     @Transactional
     public void logout(String accessToken) {
-        Optional<String> OptionalToken = AuthUtil.resolveToken(accessToken);
-        jwtTokenProvider.validateAccessToken(OptionalToken);
+        Optional<String> optionalToken = AuthUtil.resolveToken(accessToken);
+        jwtTokenProvider.validateAccessToken(optionalToken);
 
-        String token = OptionalToken.get();
+        String token = optionalToken.get();
         Long expiration = jwtTokenProvider.getExpiration(token);
-        redisTemplate.opsForValue()
-                .set("blacklist:" + token, "logout", Duration.ofMillis(expiration));
+        redisService.saveBlacklist(token, "logout", Duration.ofMillis(expiration));
 
         String email = jwtTokenProvider.getEmail(token);
-        redisTemplate.delete("RT:" + email);
+        redisService.deleteRefreshToken(email);
     }
 }

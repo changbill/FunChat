@@ -1,17 +1,19 @@
 package com.funchat.demo.room.domain;
 
 import com.funchat.demo.global.domain.BaseTimeEntity;
+import com.funchat.demo.global.exception.BusinessException;
+import com.funchat.demo.global.exception.ErrorCode;
 import com.funchat.demo.user.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
-@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 public class Room extends BaseTimeEntity {
 
@@ -22,17 +24,67 @@ public class Room extends BaseTimeEntity {
     private String title;
     private Integer maxMembers;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_manager_id")
+    @OneToMany(mappedBy = "room", cascade = CascadeType.PERSIST)
+    private List<User> participants = new ArrayList<>();
+
+    @ElementCollection
+    @CollectionTable(name = "room_banned_users", joinColumns = @JoinColumn(name = "room_id"))
+    private Set<Long> bannedUserIds = new HashSet<>();
+
+    @OneToOne(fetch = FetchType.LAZY)
     private User manager;
 
-    @Singular
-    @OneToMany(mappedBy = "room")
-    private List<RoomUser> roomUsers;
+    private Room(String title, Integer maxMembers, User manager) {
+        this.title = title;
+        this.maxMembers = maxMembers;
+        this.manager = manager;
+        acceptParticipant(manager);
+    }
 
-    public void update(String title, Integer maxMembers) {
+    public static Room createRoom(String title, Integer maxMembers, User manager) {
+        return new Room(title, maxMembers, manager);
+    }
+
+    public static Room createForTest(Long roomId, String title, Integer maxMembers, User manager) {
+        Room room = new Room(title, maxMembers, manager);
+        room.id = roomId;
+        return room;
+    }
+
+    public boolean isParticipant(User user) {
+        return participants.contains(user);
+    }
+
+    public void updateRoom(String title, Integer maxMembers) {
         this.title = title;
         this.maxMembers = maxMembers;
     }
 
+    public void acceptParticipant(User user) {
+        if (this.participants.size() >= this.maxMembers) {
+            throw new BusinessException(ErrorCode.ROOM_MAX_CAPACITY_REACHED);
+        }
+
+        this.participants.add(user);
+        user.enterRoom(this);
+    }
+
+    public void removeParticipant(User user) {
+        participants.remove(user);
+    }
+
+    public void setBannedUsers(User user) {
+        bannedUserIds.add(user.getId());
+    }
+
+    public void delegateManager(User user) {
+        manager = user;
+    }
+
+    public void deleteSetting() {
+        List<User> list = new ArrayList<>(this.participants);
+        for(User user : list) {     // foreach Iterator에서 원본 리스트 원소의 삭제를 허가하지 않음
+            user.leaveRoom();
+        }
+    }
 }
