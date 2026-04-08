@@ -1,5 +1,9 @@
 spring:
+  application:
+    name: funchat
   datasource:
+    hikari:
+      register-mbeans: true # HikariCP 지표를 JMX에 등록하여 액추에이터가 수집 가능하게 함
     url: jdbc:mysql://localhost:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
     username: ${USER_ID}
     password: ${USER_PW}
@@ -8,8 +12,7 @@ spring:
       host: localhost
       port: 6379
   jpa:
-    database-platform:
-      org.hibernate.dialect.MySQLDialect
+    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update
     show-sql: true
@@ -25,3 +28,15 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiration: ${ACCESS_EXPIRATION}
   refresh-expiration: ${REFRESH_EXPIRATION}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,prometheus" # prometheus 엔드포인트 개방
+  endpoint:
+    health:
+      show-details: always # 상세 건강 상태 확인
+  metrics:
+    tags:
+      application: ${spring.application.name} # 그라파나에서 필터링용으로 사용될 앱 이름
