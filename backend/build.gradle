@@ -28,6 +28,13 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	runtimeOnly 'com.mysql:mysql-connector-j'
 
+	// dummy data
+	implementation 'net.datafaker:datafaker:2.5.4'
+
+	// monitoring
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
 	// Spring Security
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'io.jsonwebtoken:jjwt:0.13.0'
