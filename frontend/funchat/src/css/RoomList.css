@@ -22,6 +22,56 @@
   border-bottom: 1px solid var(--room-border);
 }
 
+.room-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.room-list__refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--room-border);
+  border-radius: 8px;
+  background: var(--room-bg);
+  color: var(--room-text-muted);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+
+.room-list__refresh:hover:not(:disabled) {
+  color: var(--room-accent);
+  border-color: var(--room-accent);
+  background: var(--room-hover);
+}
+
+.room-list__refresh:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.room-list__refresh-svg {
+  display: block;
+}
+
+.room-list__refresh--spinning .room-list__refresh-svg {
+  animation: room-list-spin 0.75s linear infinite;
+}
+
+@keyframes room-list-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .room-list__header {
   font-size: 1.25rem;
   font-weight: 700;
@@ -160,4 +210,64 @@
 
 .room-list__enter:active {
   transform: scale(0.98);
+}
+
+.room-list__pagination {
+  margin-top: 0.9rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0;
+}
+
+.room-list__page {
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--room-border);
+  background: var(--room-bg);
+  color: var(--room-text-muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.1s;
+}
+
+.room-list__page:hover:not(:disabled) {
+  color: var(--room-accent);
+  border-color: var(--room-accent);
+  background: var(--room-hover);
+}
+
+.room-list__page:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.room-list__page:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.room-list__page--active {
+  color: #fff;
+  border-color: var(--room-accent);
+  background: var(--room-accent);
+}
+
+.room-list__page--active:hover:not(:disabled) {
+  color: #fff;
+  background: var(--room-accent-hover);
+  border-color: var(--room-accent-hover);
+}
+
+.room-list__page--arrow {
+  min-width: 2.5rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding-bottom: 0.05rem;
 }
