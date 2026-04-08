@@ -1,7 +1,6 @@
 package com.funchat.demo.room.controller;
 
 import com.funchat.demo.auth.domain.dto.CustomUserDetails;
-import com.funchat.demo.chat.service.MessageBrokerChatService;
 import com.funchat.demo.room.domain.dto.RoomRequest;
 import com.funchat.demo.global.dto.ResponseDto;
 import com.funchat.demo.room.domain.dto.RoomResponse;
@@ -10,6 +9,9 @@ import com.funchat.demo.room.service.RoomService;
 import com.funchat.demo.util.ResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,16 +22,21 @@ import org.springframework.web.bind.annotation.*;
 public class RoomController {
 
     private final RoomService roomService;
-    private final MessageBrokerChatService messageBrokerChatService;
 
     @PostMapping
-    public ResponseEntity<ResponseDto> createRoom(@Valid @RequestBody RoomRequest request) {
-        return ResponseUtil.createSuccessResponse(roomService.createRoom(request));
+    public ResponseEntity<ResponseDto> createRoom(
+            @Valid @RequestBody RoomRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.user().getId();
+        return ResponseUtil.createSuccessResponse(roomService.createRoom(request, userId));
     }
 
     @GetMapping
-    public ResponseEntity<ResponseDto> getAllRooms() {
-        return ResponseUtil.createSuccessResponse(roomService.findAllRooms());
+    public ResponseEntity<ResponseDto> getAllRooms(
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseUtil.createSuccessResponse(roomService.findAllRooms(pageable));
     }
 
     @GetMapping("/{roomId}")

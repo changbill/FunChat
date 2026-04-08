@@ -1,6 +1,8 @@
 package com.funchat.demo.user.domain;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,7 +13,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByNickname(String nickname);
     long countByRoomId(Long roomId);
     List<User> findByRoomId(Long roomId);
-
-    // 유저가 현재 어느 방에 있는지 확인 (이미 있다면 에러 처리용)
     boolean existsByIdAndRoomIsNotNull(Long userId);
+    boolean existsByIdAndRoom_Id(Long userId, Long roomId);
+    @Query("SELECT u FROM User u WHERE u.room.id = :roomId AND u.id <> :userId")
+    Optional<User> findFirstByRoomIdAndIdNot(@Param("roomId") Long roomId, @Param("userId") Long userId);
 }

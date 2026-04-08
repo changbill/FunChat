@@ -2,7 +2,6 @@ package com.funchat.demo.room.service;
 
 import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.service.MessageBrokerChatService;
-import com.funchat.demo.chat.service.redis.RedisService;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
 import com.funchat.demo.room.domain.Room;
@@ -20,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -34,8 +34,6 @@ class RoomServiceTest {
     private RoomRepository roomRepository;
     @Mock
     private UserRepository userRepository;
-    @Mock
-    private RedisService redisService;
     @Mock
     private MessageBrokerChatService messageBrokerChatService;
 
@@ -62,8 +60,8 @@ class RoomServiceTest {
         @DisplayName("바꾸려는 사람이 매니저가 아닌 경우")
         void notManager() {
             // given
-            room.acceptParticipant(participant);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant, 1);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when & then
             RoomUpdateRequest request = RoomUpdateRequest.builder().build();
@@ -76,9 +74,10 @@ class RoomServiceTest {
         @DisplayName("최대 인원 설정은 현재 인원보다 더 적게 설정할 수 없다")
         void cantSetMaxMembers_LessThen_CurrentNumberOfPeople() {
             // given
-            room.acceptParticipant(participant);
-            room.acceptParticipant(newbie);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant,1);
+            room.acceptParticipant(newbie,2);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+            when(userRepository.countByRoomId(1L)).thenReturn(3L);
 
             // when & then
             RoomUpdateRequest request = RoomUpdateRequest.builder().maxMembers(2).build();
@@ -91,7 +90,7 @@ class RoomServiceTest {
         @DisplayName("성공")
         void Success() {
             // given
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when
             RoomUpdateRequest request = new RoomUpdateRequest("수정된 방 제목", 10);
@@ -107,16 +106,20 @@ class RoomServiceTest {
     @DisplayName("방 만들기")
     void createRoom() {
         // given
-        RoomRequest request = new RoomRequest("새로운 방", 10, 2L);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
+        RoomRequest request = new RoomRequest("새로운 방", 10);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(manager));
+        when(roomRepository.save(any(Room.class))).thenAnswer(invocation -> {
+            Room room = invocation.getArgument(0);
+            ReflectionTestUtils.setField(room, "id", 1L);
+            return room;
+        });
 
         // when & then
-        RoomResponse response = roomService.createRoom(request);
+        RoomResponse response = roomService.createRoom(request, 1L);
 
         assertThat(response.title()).isEqualTo("새로운 방");
         assertThat(response.maxMembers()).isEqualTo(10);
-        assertThat(participant.getRoom()).isNotNull();
-        assertThat(participant.getRoom().getTitle()).isEqualTo("새로운 방");
+        verify(userRepository, times(1)).countByRoomId(1L);
         verify(roomRepository, times(1)).save(any(Room.class));
     }
 
@@ -127,7 +130,7 @@ class RoomServiceTest {
         @DisplayName("방장 아이디 찾을 수 없는 경우")
         void notFoundManager() {
             //given
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
             when(userRepository.existsById(1L)).thenReturn(false);
 
             assertThatThrownBy(() -> roomService.delegateManager(1L, 1L, 2L))
@@ -139,8 +142,8 @@ class RoomServiceTest {
         @DisplayName("방장 권한이 없는 경우")
         void notManager() {
             // given
-            room.acceptParticipant(participant);
-            room.acceptParticipant(newbie);
+            room.acceptParticipant(participant, 1);
+            room.acceptParticipant(newbie, 2);
             when(userRepository.existsById(2L)).thenReturn(true);
             when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
@@ -152,7 +155,7 @@ class RoomServiceTest {
         @Test
         @DisplayName("성공")
         void Success() {
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
             when(userRepository.existsById(1L)).thenReturn(true);
             when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
@@ -170,7 +173,7 @@ class RoomServiceTest {
         @DisplayName("방장 권한이 없는 경우")
         void notManager() {
             // given
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
             when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when & then
@@ -183,7 +186,7 @@ class RoomServiceTest {
         @DisplayName("참여자와 방 연관관계가 끊어졌는지 확인")
         void disconnectRelation() {
             // given
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
             when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when
@@ -212,7 +215,7 @@ class RoomServiceTest {
         @DisplayName("방 id가 잘못된 경우")
         void invalidRoomId() {
             // given
-            when(roomRepository.findByIdWithParticipants(2L)).thenReturn(Optional.empty());
+            when(roomRepository.findById(2L)).thenReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> roomService.enterRoom(2L, 1L))
@@ -224,7 +227,7 @@ class RoomServiceTest {
         @DisplayName("유저를 찾을 수 없는 경우")
         void invalidUserId() {
             // given
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(4L)).thenReturn(Optional.empty());
 
             // when & then
@@ -238,7 +241,7 @@ class RoomServiceTest {
         void cantEnter_BannedUser() {
             // given
             room.setBannedUsers(participant);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
 
             // when & then
@@ -252,9 +255,10 @@ class RoomServiceTest {
         void cantEnter_MaxMembers() {
             // given
             room.updateRoom("방 이름", 2);
-            room.acceptParticipant(participant);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant, 1);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(3L)).thenReturn(Optional.of(newbie));
+            when(userRepository.countByRoomId(1L)).thenReturn(2L);
 
             // when & then
             assertThatThrownBy(() -> roomService.enterRoom(1L, 3L))
@@ -266,7 +270,7 @@ class RoomServiceTest {
         @DisplayName("성공")
         void success() {
             //given
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
 
             // when
@@ -274,9 +278,6 @@ class RoomServiceTest {
 
             // then
             assertThat(participant.getRoom()).isEqualTo(room);
-            assertThat(room.getParticipants()).contains(participant);
-            assertThat(room.getParticipants()).hasSize(2);
-            verify(redisService, times(1)).saveUserCurrentRoomId(2L, 1L);
         }
     }
 
@@ -287,10 +288,10 @@ class RoomServiceTest {
         @DisplayName("일반 참여자가 나가면 방은 유지되고 참여자 명단에서만 제거된다")
         void leaveRoom_Participant() {
             // given
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
 
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when
             roomService.leaveRoom(2L);
@@ -305,10 +306,11 @@ class RoomServiceTest {
         @DisplayName("방장이 나가면 다음 참여자에게 방장이 위임된다")
         void leaveRoom_DelegateManager() {
             // given
-            room.acceptParticipant(participant);
+            room.acceptParticipant(participant, 1);
 
             when(userRepository.findById(1L)).thenReturn(Optional.of(manager));
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
+            when(userRepository.findFirstByRoomIdAndIdNot(1L, 1L)).thenReturn(Optional.of(participant));
 
             // when
             roomService.leaveRoom(1L);
@@ -324,7 +326,7 @@ class RoomServiceTest {
         void leaveRoom_DeleteRoomWhenLastPersonLeaves() {
             // given
             when(userRepository.findById(1L)).thenReturn(Optional.of(manager));
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when
             roomService.leaveRoom(1L);
@@ -341,7 +343,7 @@ class RoomServiceTest {
         @DisplayName("방 id가 잘못된 경우")
         void invalidRoomId() {
             // given
-            when(roomRepository.findByIdWithParticipants(2L)).thenReturn(Optional.empty());
+            when(roomRepository.findById(2L)).thenReturn(Optional.empty());
 
             //when & then
             assertThatThrownBy(() -> roomService.banUser(2L, 1L, 2L))
@@ -353,9 +355,9 @@ class RoomServiceTest {
         @DisplayName("방장 id가 잘못된 경우")
         void invalidManagerId() {
             // given
-            room.acceptParticipant(participant);
-            room.acceptParticipant(newbie);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant, 1);
+            room.acceptParticipant(newbie, 2);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
 
             // when & then
             assertThatThrownBy(() -> roomService.banUser(1L, 2L, 3L))
@@ -367,8 +369,8 @@ class RoomServiceTest {
         @DisplayName("유저 id가 잘못된 경우")
         void invalidUserId() {
             // given
-            room.acceptParticipant(participant);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant, 1);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(4L)).thenReturn(Optional.empty());
 
             // when & then
@@ -381,7 +383,7 @@ class RoomServiceTest {
         @DisplayName("강퇴 대상이 방에 없는 경우")
         void banUser_NotParticipant() {
             // given
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
 
             // when & then
@@ -394,9 +396,10 @@ class RoomServiceTest {
         @DisplayName("성공")
         void success() {
             // given
-            room.acceptParticipant(participant);
-            when(roomRepository.findByIdWithParticipants(1L)).thenReturn(Optional.of(room));
+            room.acceptParticipant(participant, 1);
+            when(roomRepository.findById(1L)).thenReturn(Optional.of(room));
             when(userRepository.findById(2L)).thenReturn(Optional.of(participant));
+            when(userRepository.existsByIdAndRoom_Id(2L, 1L)).thenReturn(true);
 
             // when
             roomService.banUser(1L, 1L, 2L);
@@ -405,7 +408,6 @@ class RoomServiceTest {
             assertThat(room.getParticipants()).hasSize(1);
             assertThat(room.getParticipants()).doesNotContain(participant);
             verify(messageBrokerChatService, times(1)).sendNoticeToRedisStreams(1L, participant.getNickname(), MessageType.BAN);
-            verify(redisService, times(1)).deleteUserCurrentRoomId(2L);
         }
     }
 }

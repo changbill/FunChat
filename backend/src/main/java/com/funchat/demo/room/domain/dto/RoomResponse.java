@@ -16,7 +16,7 @@ public record RoomResponse(
         String managerNickname,
         LocalDateTime createdAt
 ) {
-    public static RoomResponse from(Room room) {
+    public static RoomResponse from(Room room, long currentCount) {
         return RoomResponse.builder()
                 .roomId(room.getId())
                 .title(room.getTitle())
