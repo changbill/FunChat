@@ -1,0 +1,199 @@
+/* RoomList · LoginPage와 동일 톤 */
+.chat-room {
+  --room-bg: #1a1d24;
+  --room-border: #2d323d;
+  --room-hover: #252932;
+  --room-accent: #7c6ef6;
+  --room-accent-hover: #9289f7;
+  --room-text: #e4e6eb;
+  --room-text-muted: #9ca3af;
+  --room-error: #f87171;
+  --room-input-bg: #111318;
+
+  min-height: 100vh;
+  box-sizing: border-box;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0));
+  background: #111318;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.chat-room__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--room-border);
+  flex-shrink: 0;
+}
+
+.chat-room__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--room-text);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.chat-room__leave {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--room-text-muted);
+  background: transparent;
+  border: 1px solid var(--room-border);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.1s;
+}
+
+.chat-room__leave:hover {
+  color: var(--room-error);
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.chat-room__leave:active {
+  transform: scale(0.98);
+}
+
+.chat-room__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.chat-room__scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 12rem;
+  max-height: min(60vh, 28rem);
+  border-radius: 12px;
+  border: 1px solid var(--room-border);
+  background: var(--room-bg);
+  padding: 0.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-room__loading-older {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--room-text-muted);
+}
+
+.chat-room__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.chat-room__msg {
+  padding: 0.75rem 1rem;
+  background: var(--room-hover);
+  border: 1px solid var(--room-border);
+  border-radius: 10px;
+  border-left: 3px solid var(--room-accent);
+}
+
+.chat-room__msg-meta {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--room-accent-hover);
+  letter-spacing: 0.02em;
+}
+
+.chat-room__msg-text {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  color: var(--room-text);
+  word-break: break-word;
+}
+
+.chat-room__empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--room-text-muted);
+}
+
+.chat-room__composer {
+  flex-shrink: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--room-border);
+}
+
+.chat-room__form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.chat-room__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9375rem;
+  color: var(--room-text);
+  background: var(--room-input-bg);
+  border: 1px solid var(--room-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-room__input::placeholder {
+  color: var(--room-text-muted);
+}
+
+.chat-room__input:focus {
+  border-color: var(--room-accent);
+  box-shadow: 0 0 0 3px rgba(124, 110, 246, 0.2);
+}
+
+.chat-room__send {
+  flex-shrink: 0;
+  padding: 0.625rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--room-accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.chat-room__send:hover:not(:disabled) {
+  background: var(--room-accent-hover);
+}
+
+.chat-room__send:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.chat-room__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
