@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 import static com.funchat.demo.global.constants.ChatConstants.*;
-import static com.funchat.demo.global.constants.ChatConstants.MESSAGE;
 
 @Service
 @RequiredArgsConstructor
@@ -29,12 +28,17 @@ public class ChatService {
     private final MessageRepository messageRepository;
 
     public void saveMessageToMongo(Map<String, String> messageMap) {
+        String typeRaw = messageMap.get(MESSAGE_TYPE);
+        if (typeRaw == null || typeRaw.isBlank()) {
+            typeRaw = MessageType.TEXT.name();
+        }
+
         ChatMessage message = ChatMessage.createMessage(
                 ParseUtil.parseLong(messageMap.get(ROOM_ID), new BusinessException(ErrorCode.ROOM_NOT_FOUND, "roomId 형식이 잘못되었습니다.")),
                 ParseUtil.parseLong(messageMap.get(SENDER_ID), new BusinessException(ErrorCode.USER_NOT_FOUND, "senderId 형식이 잘못되었습니다.")),
                 messageMap.get(SENDER_NICKNAME),
-                messageMap.get(MESSAGE),
-                MessageType.valueOf(messageMap.get(MESSAGE_TYPE))
+                messageMap.get(MESSAGE_CONTENT),
+                MessageType.valueOf(typeRaw)
         );
 
         messageRepository.save(message);

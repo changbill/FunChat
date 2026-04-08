@@ -30,14 +30,13 @@ public class RedisCacheConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        ObjectMapper mapper = new JsonMapper();
-        GenericJacksonJsonRedisSerializer jsonSerializer = new GenericJacksonJsonRedisSerializer(mapper);
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        template.setKeySerializer(new StringRedisSerializer()); // 키는 평범한 문자열로
-        template.setValueSerializer(jsonSerializer);            // 값(객체)은 JSON으로
+        template.setKeySerializer(stringSerializer);
+        template.setHashKeySerializer(stringSerializer);
 
-        template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(jsonSerializer);
+        template.setValueSerializer(stringSerializer);
+        template.setHashValueSerializer(stringSerializer);
 
         return template;
     }

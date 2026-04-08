@@ -8,33 +8,34 @@ import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import static com.funchat.demo.global.constants.ChatConstants.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MessageBrokerChatService {
 
     private final RedisMessageBrokerAdapter messageBrokerAdapter;
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatService chatService;
 
-    // 빈 주입을 모두 마친 직후에 실행할 로직
     @PostConstruct
     public void init() {
         // 메시지 브로커에서 STREAM_TOPIC, CONSUMER_GROUP를 기준으로 메시지 구독
-        messageBrokerAdapter.subscribe(STREAM_TOPIC, CONSUMER_GROUP, message -> {
-            String roomId = message.get(ROOM_ID);
+        messageBrokerAdapter.subscribe(STREAM_TOPIC, CONSUMER_GROUP, this::dispatchStreamMessageToClients);
+    }
 
-            // 웹소켓으로 /sub/chat/ + roomId를 구독하고 있는 뷰단에 메시지 전송
-            messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, message);
-            // TODO: mongoDB에 저장하는 중 오류가 발생하면 재시도(Retry) 로직 실행
-            chatService.saveMessageToMongo(message);
-        });
+    private void dispatchStreamMessageToClients(Map<String, String> message) {
+        String roomId = message.get(ROOM_ID);
+        messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, message);
+        chatService.saveMessageToMongo(message);
     }
 
     public void sendChatMessageToRedisStreams(Long roomId, Long senderId, String nickname, String inputMessage) {

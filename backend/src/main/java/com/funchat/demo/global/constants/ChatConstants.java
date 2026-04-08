@@ -10,7 +10,7 @@ public class ChatConstants {
     public static final String ROOM_ID = "roomId";
     public static final String SENDER_ID = "senderId";
     public static final String SENDER_NICKNAME = "senderNickname";
-    public static final String MESSAGE = "message";
-    public static final String MESSAGE_TYPE = "messageType";
+    public static final String MESSAGE_CONTENT = "content";
+    public static final String MESSAGE_TYPE = "type";
     public static final String SUBSCRIPTION_URL = "/sub/chat/";
 }
