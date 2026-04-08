@@ -33,9 +33,7 @@ public class StompEventListener {
             String nickname = userDetails.user().getNickname();
 
             messageBrokerChatService.sendNoticeToRedisStreams(roomId, nickname, MessageType.JOIN);
-            log.info("[입장] User {} join room {}", nickname, roomId);
         }
-        log.info("새로운 세션 연결: {}", headerAccessor.getSessionId());
     }
 
     @EventListener
@@ -51,7 +49,6 @@ public class StompEventListener {
             String nickname = userDetails.user().getNickname();
 
             messageBrokerChatService.sendNoticeToRedisStreams(roomId, nickname, MessageType.LEAVE);
-            log.info("[퇴장] User {} left room {}", nickname, roomId);
         }
     }
 }

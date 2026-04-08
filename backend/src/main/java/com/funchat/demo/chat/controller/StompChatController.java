@@ -8,7 +8,9 @@ import com.funchat.demo.global.exception.ErrorCode;
 import com.funchat.demo.user.domain.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
@@ -25,11 +27,12 @@ public class StompChatController {
      * STOMP로 메시지를 보낼 때 헤더에 roomId를 반드시 포함
      *
      * @param request
-     * @param principal
+     * @param message
      */
     @MessageMapping("/chat/message")
-    public void message(MessageRequest request, Principal principal) {
-        User user = extractUser(principal);
+    public void message(MessageRequest request, Message<?> message) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        User user = extractUser(accessor.getUser());
 
         messageBrokerChatService.sendChatMessageToRedisStreams(
                 request.roomId(),
