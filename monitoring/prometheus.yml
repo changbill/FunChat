@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 5s # 테스트 중이므로 빠르게 수집 (기본 15s)
+
+scrape_configs:
+  # 1. 프로메테우스 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # 2. 내 스프링 부트 앱 모니터링
+  - job_name: 'spring-boot-app'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080'] # 로컬 앱 주소
+
+  # 3. MySQL 모니터링
+  - job_name: 'mysql'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['mysql-exporter:9104']
+
+# k6가 데이터를 밀어넣을 수 있도록 수신 대기 (Remote Write)
+remote_write:
+  - url: 'http://localhost:9090/api/v1/write'
