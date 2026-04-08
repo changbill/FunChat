@@ -10,7 +10,6 @@ import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.dto.LoginRequest;
 import com.funchat.demo.user.domain.dto.SignUpRequest;
 import com.funchat.demo.user.domain.UserRepository;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,12 +34,21 @@ public class UserService {
 
     @Transactional
     public void signUp(SignUpRequest request) {
-        // 이메일 중복 체크
-        if (userRepository.existsByEmail(request.email())) {
+        String email = request.email();
+        if (email == null || email.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String nickname = request.nickname();
+        if (nickname == null || nickname.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (userRepository.existsByEmail(email)) {
             throw new BusinessException(ErrorCode.EMAILS_ALREADY_EXIST);
         }
 
-        if (userRepository.existsByNickname(request.nickname())) {
+        if (userRepository.existsByNickname(nickname)) {
             throw new BusinessException(ErrorCode.NICKNAME_ALREADY_EXIST);
         }
 
@@ -63,9 +71,10 @@ public class UserService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        String accessToken = jwtTokenProvider.createAccessToken(request.email());
-        String refreshToken = jwtTokenProvider.createRefreshToken(request.email());
-        redisService.saveRefreshToken(user.getEmail(),refreshToken, Duration.ofMillis(refreshExpiration));
+        String email = user.getEmail();
+        String accessToken = jwtTokenProvider.createAccessToken(email);
+        String refreshToken = jwtTokenProvider.createRefreshToken(email);
+        redisService.saveRefreshToken(email, refreshToken, Duration.ofMillis(refreshExpiration));
         return TokenResponse.loginOf(accessToken, refreshToken, user.getNickname());
     }
 
@@ -84,7 +93,7 @@ public class UserService {
         }
 
         String newAccessToken = jwtTokenProvider.createAccessToken(email);
-        String newRefreshToken = jwtTokenProvider.createRefreshToken(email); // 발급 메서드 필요
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(email);
         redisService.saveRefreshToken(email, newRefreshToken, Duration.ofMillis(refreshExpiration));
         return TokenResponse.reissueOf(newAccessToken, newRefreshToken);
     }

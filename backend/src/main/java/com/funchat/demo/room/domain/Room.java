@@ -38,7 +38,7 @@ public class Room extends BaseTimeEntity {
         this.title = title;
         this.maxMembers = maxMembers;
         this.manager = manager;
-        acceptParticipant(manager);
+        acceptParticipant(manager, 0);
     }
 
     public static Room createRoom(String title, Integer maxMembers, User manager) {
@@ -51,17 +51,13 @@ public class Room extends BaseTimeEntity {
         return room;
     }
 
-    public boolean isParticipant(User user) {
-        return participants.contains(user);
-    }
-
     public void updateRoom(String title, Integer maxMembers) {
         this.title = title;
         this.maxMembers = maxMembers;
     }
 
-    public void acceptParticipant(User user) {
-        if (this.participants.size() >= this.maxMembers) {
+    public void acceptParticipant(User user, long currentCount) {
+        if (currentCount >= this.maxMembers) {
             throw new BusinessException(ErrorCode.ROOM_MAX_CAPACITY_REACHED);
         }
 
@@ -85,6 +81,7 @@ public class Room extends BaseTimeEntity {
         List<User> list = new ArrayList<>(this.participants);
         for(User user : list) {     // foreach Iterator에서 원본 리스트 원소의 삭제를 허가하지 않음
             user.leaveRoom();
+            participants.remove(user);
         }
     }
 }

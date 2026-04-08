@@ -61,6 +61,7 @@ public class User extends BaseTimeEntity {
             this.enteredAt = LocalDateTime.now();
             return;
         }
+
         throw new BusinessException(ErrorCode.ROOM_USER_ALREADY_JOINED);
     }
 
@@ -68,6 +69,7 @@ public class User extends BaseTimeEntity {
         if(this.room == null) {
             throw new BusinessException(ErrorCode.ROOM_NOT_FOUND);
         }
+
         room.removeParticipant(this);
         this.room = null;
         this.enteredAt = null;
