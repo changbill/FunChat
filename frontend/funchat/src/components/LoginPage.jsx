@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import '../css/LoginPage.css'
 import { saveAuth, resolveAuthSession } from '../utils/auth'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const API_BASE = ''
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
@@ -35,7 +35,10 @@ const LoginPage = () => {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await res.json()
+      const contentType = res.headers.get('content-type') ?? ''
+      const data = contentType.includes('application/json')
+        ? await res.json()
+        : { message: (await res.text()) || '서버 응답을 해석하지 못했습니다.' }
       if (!res.ok || !data?.body?.accessToken) {
         throw new Error(data?.message ?? '로그인에 실패했습니다.')
       }

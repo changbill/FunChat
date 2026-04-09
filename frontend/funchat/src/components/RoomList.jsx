@@ -4,7 +4,7 @@ import '../css/RoomList.css'
 import { clearAuth, getAccessToken } from '../utils/auth'
 import RefreshButton from './RefreshButton'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const API_BASE = ''
 
 const RoomList = () => {
   const PAGE_SIZE = 20
@@ -49,11 +49,14 @@ const RoomList = () => {
             ? Math.max(0, targetPage)
             : 0
 
-        const url = new URL(`${API_BASE}/api/rooms`)
-        url.searchParams.set('page', String(nextPage))
-        url.searchParams.set('size', String(PAGE_SIZE))
+        const path = `${API_BASE}/api/rooms`
+        const qs = new URLSearchParams({
+          page: String(nextPage),
+          size: String(PAGE_SIZE),
+        }).toString()
+        const url = `${path}?${qs}`
 
-        const res = await fetch(url.toString(), {
+        const res = await fetch(url, {
           credentials: 'include',
           headers: authHeaders(),
         })
@@ -77,7 +80,9 @@ const RoomList = () => {
             : []
 
         const serverTotalPages =
-          parsed && typeof parsed.totalPages === 'number' && parsed.totalPages > 0
+          parsed &&
+          typeof parsed.totalPages === 'number' &&
+          parsed.totalPages > 0
             ? parsed.totalPages
             : 1
         const serverPage =
@@ -234,8 +239,8 @@ const RoomList = () => {
                     {room.title ?? `방 ${room.roomId}`}
                   </p>
                   <p className="room-list__meta">
-                    인원 {room.currentMembers ?? 0}/{room.maxMembers ?? 0} · 방장{' '}
-                    {room.managerNickname ?? '-'}
+                    인원 {room.currentMembers ?? 0}/{room.maxMembers ?? 0} ·
+                    방장 {room.managerNickname ?? '-'}
                   </p>
                 </div>
                 <button

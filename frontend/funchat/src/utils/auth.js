@@ -1,8 +1,9 @@
 const ACCESS_TOKEN_KEY = import.meta.env.VITE_ACCESS_TOKEN_KEY ?? 'accessToken'
-const REFRESH_TOKEN_KEY = import.meta.env.VITE_REFRESH_TOKEN_KEY ?? 'refreshToken'
+const REFRESH_TOKEN_KEY =
+  import.meta.env.VITE_REFRESH_TOKEN_KEY ?? 'refreshToken'
 const NICKNAME_KEY = import.meta.env.VITE_NICKNAME_KEY ?? 'nickname'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const API_BASE = ''
 
 export const getAccessToken = () => localStorage.getItem(ACCESS_TOKEN_KEY)
 
