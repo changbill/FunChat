@@ -25,7 +25,10 @@ const SignupPage = () => {
         body: JSON.stringify({ email, password, nickname }),
       })
 
-      const data = await res.json()
+      const contentType = res.headers.get('content-type') ?? ''
+      const data = contentType.includes('application/json')
+        ? await res.json()
+        : { message: (await res.text()) || '서버 응답을 해석하지 못했습니다.' }
       if (!res.ok || data?.code !== 200) {
         throw new Error(data?.message ?? '회원가입에 실패했습니다.')
       }

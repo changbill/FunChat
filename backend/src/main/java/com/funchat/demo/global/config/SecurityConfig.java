@@ -8,6 +8,7 @@ import com.funchat.demo.global.filter.JwtExceptionFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -29,6 +30,7 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final RedisService redisService;
     private final ObjectMapper objectMapper;
+    private final Environment environment;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -42,7 +44,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Stateless 환경이므로 CSRF 비활성화
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용 안함
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/rooms/**").permitAll()   // TODO: 더미데이터 생성 시에만 허용
+                        // .requestMatchers("/api/rooms/**").permitAll()   // 더미데이터 생성용
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll() // 로그인, 회원가입은 모두 허용
                         .requestMatchers("/ws/**", "/ws").permitAll() // SockJS 핸드셰이크 허용
@@ -59,7 +61,18 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.addAllowedOrigin("http://localhost:5173"); // 프런트 주소
+        String allowed = environment.getProperty("CORS_ALLOWED_ORIGINS", "");
+        if (allowed != null && !allowed.isBlank()) {
+            for (String origin : allowed.split(",")) {
+                String o = origin.trim();
+                if (!o.isBlank()) {
+                    configuration.addAllowedOriginPattern(o);
+                }
+            }
+        } else {
+            configuration.addAllowedOriginPattern("http://localhost:*");
+            configuration.addAllowedOriginPattern("http://127.0.0.1:*");
+        }
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
         configuration.setAllowCredentials(true); // 쿠키 허용
