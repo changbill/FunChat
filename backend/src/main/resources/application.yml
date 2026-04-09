@@ -4,12 +4,12 @@ spring:
   datasource:
     hikari:
       register-mbeans: true # HikariCP 지표를 JMX에 등록하여 액추에이터가 수집 가능하게 함
-    url: jdbc:mysql://localhost:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    url: ${SPRING_DATASOURCE_URL}
     username: ${USER_ID}
     password: ${USER_PW}
   data:
     redis:
-      host: localhost
+      host: ${SPRING_DATA_REDIS_HOST}
       port: 6379
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
@@ -17,7 +17,7 @@ spring:
       ddl-auto: update
     show-sql: true
   mongodb:
-    host: localhost
+    host: ${SPRING_DATA_MONGODB_HOST}
     port: 27017
     database: funchat
     username: ${USER_ID}

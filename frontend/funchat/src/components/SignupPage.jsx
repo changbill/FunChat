@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import '../css/LoginPage.css'
 import { clearAuth } from '../utils/auth'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+const API_BASE = ''
 
 const SignupPage = () => {
   const [email, setEmail] = useState('')

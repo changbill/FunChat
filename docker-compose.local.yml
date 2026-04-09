@@ -1,0 +1,70 @@
+services:
+  web:
+    build: ./frontend/funchat
+    restart: always
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+
+  app:
+    build: ./backend
+    restart: always
+    depends_on:
+      - rdb
+      - mongo
+      - redis
+    ports:
+      - '8080:8080'
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://rdb:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_MONGODB_HOST: mongo
+      USER_ID: ${USER_ID}
+      USER_PW: ${USER_PW}
+      ROOT_PW: ${ROOT_PW}
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_EXPIRATION: ${ACCESS_EXPIRATION}
+      REFRESH_EXPIRATION: ${REFRESH_EXPIRATION}
+
+  rdb:
+    image: mysql:latest
+    container_name: mysqldb
+    restart: always
+    environment:
+      MYSQL_DATABASE: funchat
+      MYSQL_ROOT_PASSWORD: ${ROOT_PW}
+      MYSQL_USER: ${USER_ID}
+      MYSQL_PASSWORD: ${USER_PW}
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: funchat
+      MONGO_INITDB_ROOT_USERNAME: ${USER_ID}
+      MONGO_INITDB_ROOT_PASSWORD: ${USER_PW}
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mysql_data:
+  mongo_data:
+  redis_data:

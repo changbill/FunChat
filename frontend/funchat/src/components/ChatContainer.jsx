@@ -15,7 +15,7 @@ const ChatContainer = () => {
   const [inputMessage, setInputMessage] = useState('')
   const { roomId } = useParams()
   const navigate = useNavigate()
-  const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080'
+  const API_BASE = ''
   /** 같은 방에서 leave가 중복되면 백엔드에서 오류 가능 → 한 번만 전송 */
   const leaveSentRef = useRef(false)
   /** GET 히스토리 다음 페이지 커서·hasNext (스크롤 상단에서 과거 메시지 로드) */
