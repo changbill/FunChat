@@ -10,7 +10,7 @@ pipeline {
         DEPLOY_USER = "ec2-user"
 
         // 백엔드 수평확장 개수 (docker compose up --scale)
-        APP_REPLICAS = "2"
+        APP_REPLICAS = "3"
         DOCKER_HUB_CREDS = 'docker-hub-credentials'   // 젠킨스에 등록한 Docker ID
         AWS_CREDS = 'funchat-ec2-credentials'         // 젠킨스에 등록한 AWS .pem 키 ID
     }
