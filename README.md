@@ -10,7 +10,7 @@
 | --------------- | --------------------------------------------------------------------------------------------------- |
 | 컨테이너 이미지 | Docker Hub: `changbill/funchat-backend`, `changbill/funchat-frontend`                               |
 | CI/CD           | [Jenkinsfile](./Jenkinsfile) — 백엔드·프론트엔드 Docker 빌드 → 푸시 → EC2에서 `docker compose` 배포 |
-| 로컬 스택       | [docker-compose.yml](./docker-compose.yml) — Nginx 프론트, Spring Boot, MySQL, MongoDB, Redis       |
+| 배포 스택       | [`deploy/`](./deploy/) — Blue/Green + Router(Nginx) + Infra(MySQL/Mongo/Redis)                       |
 | 서비스 URL      | URL: https://funchat.changee.cloud/                                                                 |
 
 ---
@@ -22,7 +22,7 @@ funchat/
 ├── backend/                 # Spring Boot 백엔드 API·WebSocket 서버
 ├── frontend/funchat/        # 사용자 웹 (React + Vite)
 ├── monitoring/              # Prometheus 설정·부하 테스트 스크립트 (k6 등)
-├── docker-compose.yml       # 로컬/서버 컨테이너 구성 (MySQL·MongoDB·Redis 포함)
+├── deploy/                  # 배포용 compose/nginx(blue/green, router, infra)
 └── Jenkinsfile              # Docker 빌드·배포 파이프라인
 ```
 
@@ -93,12 +93,17 @@ com.funchat.demo/
 
 | 항목                                       | 설명                                                              |
 | ------------------------------------------ | ----------------------------------------------------------------- |
-| [docker-compose.yml](./docker-compose.yml) | `web`(Nginx+프론트), `app`(백엔드), MySQL, MongoDB, Redis 및 볼륨 |
+| [`deploy/`](./deploy/)                     | Blue/Green 스택(`web`,`app`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
 | [monitoring/](./monitoring/)               | Prometheus 설정, 부하 테스트용 스크립트 등                        |
 
 ---
 
 ## 로컬 실행 요약
 
-1. 루트의 `docker-compose.yml`에 맞춰 환경 변수( DB·JWT·CORS 등)를 설정한다.
-2. 또는 `backend`에서 Spring Boot를, `frontend/funchat`에서 `npm run dev`로 각각 기동하고, 백엔드가 기대하는 MySQL·MongoDB·Redis를 로컬 또는 컨테이너로 띄운다.
+1. `backend`에서 Spring Boot를, `frontend/funchat`에서 `npm run dev`로 각각 기동한다.
+2. 백엔드가 기대하는 MySQL·MongoDB·Redis는 로컬 또는 컨테이너로 띄운다.
+
+### 로컬(도커 컴포즈)로 한 번에 실행
+
+- **실행**: `deploy/docker-compose.local.yml` 사용
+- **노출 포트**: `80`(router), `8080`(backend), `3306`(mysql), `27017`(mongo), `6379`(redis)

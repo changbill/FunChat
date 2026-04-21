@@ -1,5 +1,18 @@
-# cursor
-.cursor
-
-# env
 .env
+
+# Cursor/VSCode
+.cursor/
+.vscode/
+
+# Node
+**/node_modules/
+**/.vite/
+**/.cache/
+
+# Local databases / volumes
+backend/mongo_data/
+backend/mysql_data/
+
+# OS
+.DS_Store
+Thumbs.db
