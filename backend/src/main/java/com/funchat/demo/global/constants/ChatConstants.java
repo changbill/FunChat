@@ -5,8 +5,13 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ChatConstants {
-    public static final String STREAM_TOPIC = "chat-stream";
-    public static final String CONSUMER_GROUP = "chat-group";
+    // Durable path (exactly-once-ish persistence via consumer group)
+    public static final String STREAM_PERSIST = "chat:stream:persist";
+    public static final String PERSIST_GROUP = "chat:persist:group";
+
+    // Best-effort real-time fanout path (all instances subscribe)
+    public static final String PUBSUB_FANOUT_CHANNEL = "chat:pubsub:fanout";
+
     public static final String ROOM_ID = "roomId";
     public static final String SENDER_ID = "senderId";
     public static final String SENDER_NICKNAME = "senderNickname";

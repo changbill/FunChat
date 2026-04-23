@@ -2,7 +2,6 @@ package com.funchat.demo.chat.service;
 
 import com.funchat.demo.chat.domain.MessageType;
 import com.funchat.demo.chat.domain.dto.RedisStreamsMessageDto;
-import com.funchat.demo.chat.service.redis.RedisMessageBrokerAdapter;
 import com.funchat.demo.global.constants.SystemConstants;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
@@ -13,7 +12,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 import static com.funchat.demo.global.constants.ChatConstants.*;
 
@@ -22,20 +20,31 @@ import static com.funchat.demo.global.constants.ChatConstants.*;
 @Slf4j
 public class MessageBrokerChatService {
 
-    private final RedisMessageBrokerAdapter messageBrokerAdapter;
+    private final ChatPersistBroker persistBroker;
+    private final ChatFanoutBroker fanoutBroker;
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatService chatService;
 
     @PostConstruct
     public void init() {
-        // 메시지 브로커에서 STREAM_TOPIC, CONSUMER_GROUP를 기준으로 메시지 구독
-        messageBrokerAdapter.subscribe(STREAM_TOPIC, CONSUMER_GROUP, this::dispatchStreamMessageToClients);
-    }
+        // 1) Durable path: persist to Mongo exactly-once-ish
+        persistBroker.subscribe(dto -> {
+            // Convert to the existing Mongo save map format
+            chatService.saveMessageToMongo(java.util.Map.of(
+                    ROOM_ID, String.valueOf(dto.roomId()),
+                    SENDER_ID, String.valueOf(dto.senderId()),
+                    SENDER_NICKNAME, dto.senderNickname(),
+                    MESSAGE_CONTENT, dto.content(),
+                    MESSAGE_TYPE, dto.type().name(),
+                    "createdAt", dto.createdAt().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            ));
+        });
 
-    private void dispatchStreamMessageToClients(Map<String, String> message) {
-        String roomId = message.get(ROOM_ID);
-        messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, message);
-        chatService.saveMessageToMongo(message);
+        // 2) Best-effort fanout: every instance pushes to its local websocket sessions
+        fanoutBroker.subscribe(dto -> {
+            String roomId = String.valueOf(dto.roomId());
+            messagingTemplate.convertAndSend(SUBSCRIPTION_URL + roomId, dto);
+        });
     }
 
     public void sendChatMessageToRedisStreams(Long roomId, Long senderId, String nickname, String inputMessage) {
@@ -48,7 +57,8 @@ public class MessageBrokerChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        messageBrokerAdapter.publish(STREAM_TOPIC, message);
+        persistBroker.publish(message);
+        fanoutBroker.publish(message);
     }
 
     public void sendNoticeToRedisStreams(Long roomId, String nickname, MessageType type) {
@@ -69,6 +79,7 @@ public class MessageBrokerChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        messageBrokerAdapter.publish(STREAM_TOPIC, message);
+        persistBroker.publish(message);
+        fanoutBroker.publish(message);
     }
 }
