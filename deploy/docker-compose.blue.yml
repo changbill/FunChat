@@ -17,7 +17,7 @@ services:
     networks:
       funchat_net:
         aliases:
-          - funchat_blue_app
+          - funchat-blue-app
     healthcheck:
       test: ['CMD-SHELL', "sh -c 'nc -z localhost 8081'"]
       interval: 5s
@@ -33,7 +33,7 @@ services:
     networks:
       funchat_net:
         aliases:
-          - funchat_blue_web
+          - funchat-blue-web
 
 networks:
   funchat_net:

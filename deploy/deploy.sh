@@ -42,17 +42,17 @@ if [[ "$ACTIVE" == "blue" ]]; then INACTIVE=green; else INACTIVE=blue; fi
 docker compose --env-file "$ENV_FILE" -f docker-compose.infra.yml up -d
 
 # 2) 새 이미지 pull
-docker compose --env-file "$ENV_FILE" -p "funchat_${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" pull
+docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" pull
 
 # 3) 비활성(=새) 스택 기동
-docker compose --env-file "$ENV_FILE" -p "funchat_${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" up -d --remove-orphans --scale "app=${APP_REPLICAS}"
+docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" up -d --remove-orphans --scale "app=${APP_REPLICAS}"
 
 # 4) 헬스체크 대기(app 컨테이너가 여러 개여도 동작)
 echo 'Waiting for new stack health...'
-APP_IDS="$(docker compose --env-file "$ENV_FILE" -p "funchat_${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps -q app)"
+APP_IDS="$(docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps -q app)"
 if [[ -z "$APP_IDS" ]]; then
   echo 'No app containers found.'
-  docker compose --env-file "$ENV_FILE" -p "funchat_${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps
+  docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps
   exit 1
 fi
 
@@ -77,7 +77,7 @@ done
 
 if [[ "$OK" != "1" ]]; then
   echo 'New stack did not become healthy.'
-  docker compose --env-file "$ENV_FILE" -p "funchat_${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" logs --no-color --tail=200
+  docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" logs --no-color --tail=200
   exit 1
 fi
 
@@ -92,7 +92,11 @@ docker compose --env-file "$ENV_FILE" -f docker-compose.router.yml up -d --force
 echo "$INACTIVE" > active_color
 
 # 6) 구 스택 정리
-docker compose --env-file "$ENV_FILE" -p "funchat_${ACTIVE}" -f "docker-compose.${ACTIVE}.yml" down
+# project name에 '_'가 들어가면 Docker DNS에서 이름 해석이 불안정할 수 있어
+# 새 배포부터는 funchat-blue/green 형태로 전환하되, 기존 funchat_blue/green도 함께 정리 시도
+docker compose --env-file "$ENV_FILE" -p "funchat-${ACTIVE}" -f "docker-compose.${ACTIVE}.yml" down \
+  || docker compose --env-file "$ENV_FILE" -p "funchat_${ACTIVE}" -f "docker-compose.${ACTIVE}.yml" down \
+  || true
 
 docker logout
 docker image prune -f
