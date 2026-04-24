@@ -8,4 +8,19 @@ export default defineConfig({
     // sockjs-client 등에서 참조하는 global 객체를 window로 매핑
     global: 'window',
   },
+  server: {
+    proxy: {
+      // REST API -> Spring Boot
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      // WebSocket(SockJS) -> Spring Boot
+      '/ws': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,
+      },
+    },
+  },
 })

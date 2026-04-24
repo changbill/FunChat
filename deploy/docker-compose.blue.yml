@@ -3,10 +3,10 @@ services:
     image: changbill/funchat-backend:latest
     restart: always
     environment:
-      SERVER_PORT: "8081"
+      SERVER_PORT: '8081'
       SPRING_DATASOURCE_URL: jdbc:mysql://funchat-mysqldb:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
       SPRING_DATA_REDIS_HOST: funchat-redis
-      SPRING_MONGODB_HOST: funchat-mongodb
+      SPRING_DATA_MONGODB_HOST: funchat-mongodb
       USER_ID: ${USER_ID}
       USER_PW: ${USER_PW}
       ROOT_PW: ${ROOT_PW}
@@ -19,7 +19,7 @@ services:
         aliases:
           - funchat_blue_app
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'nc -z localhost 8081'"]
+      test: ['CMD-SHELL', "sh -c 'nc -z localhost 8081'"]
       interval: 5s
       timeout: 2s
       retries: 30
