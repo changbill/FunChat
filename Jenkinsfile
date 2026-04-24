@@ -70,7 +70,9 @@ pipeline {
             steps {
                 sshagent(credentials: ["${MINI_PC_CREDS}"]) {
                     script {
-                        sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r deploy ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/deploy"
+                        // 원격 기본 디렉토리 보장 후 deploy 폴더 전송
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat\""
+                        sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r deploy ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/"
                         
                         withCredentials([
                             file(credentialsId: 'funchat-env', variable: 'ENV_FILE'),
