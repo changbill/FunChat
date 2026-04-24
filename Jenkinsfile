@@ -83,12 +83,9 @@ pipeline {
                                 # SSH stdin으로 원격 /tmp에 바로 생성한 뒤 --env-file로만 사용
                                 cat "$ENV_FILE" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST 'cat > /tmp/.funchat.env'
 
-                                ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST 'bash -se' <<'REMOTE_EOF'
+                                ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST "DOCKER_USER='$DOCKER_USER' DOCKER_PASS='$DOCKER_PASS' APP_REPLICAS='$APP_REPLICAS' bash -se" <<'REMOTE_EOF'
                                 set -euo pipefail
 
-                                DOCKER_USER="${DOCKER_USER}"
-                                DOCKER_PASS="${DOCKER_PASS}"
-                                APP_REPLICAS="${APP_REPLICAS}"
                                 ENV_FILE="/tmp/.funchat.env"
                                 trap 'rm -f "$ENV_FILE"' EXIT
 
