@@ -6,13 +6,13 @@ pipeline {
         FRONTEND_IMAGE = "changbill/funchat-frontend"
         // 배포 대상(미니 PC)로 바꾸세요.
         // 예) DEPLOY_HOST = "funchat.changee.cloud" 또는 내부/공인 IP
-        DEPLOY_HOST = "funchat.changee.cloud"
-        DEPLOY_USER = "ec2-user"
+        DEPLOY_HOST = "192.168.45.40"
+        DEPLOY_USER = "changbill"
 
         // 백엔드 수평확장 개수 (docker compose up --scale)
         APP_REPLICAS = "3"
         DOCKER_HUB_CREDS = 'docker-hub-credentials'   // 젠킨스에 등록한 Docker ID
-        AWS_CREDS = 'funchat-ec2-credentials'         // 젠킨스에 등록한 AWS .pem 키 ID
+        MINI_PC_CREDS = 'minipc-ssh-key'         // 젠킨스에 등록한 MINI PC .pem 키 ID
     }
 
     stages {
@@ -66,9 +66,9 @@ pipeline {
             }
         }
 
-        stage('6. EC2 Deploy') {
+        stage('6. Deploy') {
             steps {
-                sshagent(credentials: ["${AWS_CREDS}"]) {
+                sshagent(credentials: ["${MINI_PC_CREDS}"]) {
                     script {
                         sh "scp -o StrictHostKeyChecking=no -r deploy ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/deploy"
                         
