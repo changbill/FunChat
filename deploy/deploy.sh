@@ -6,6 +6,13 @@ APP_REPLICAS="${APP_REPLICAS:-3}"
 DOCKER_USER="${DOCKER_USER:-}"
 DOCKER_PASS="${DOCKER_PASS:-}"
 
+cleanup() {
+  if [[ "${ENV_FILE}" == /tmp/* ]]; then
+    rm -f -- "${ENV_FILE}" || true
+  fi
+}
+trap cleanup EXIT
+
 if [[ -z "$DOCKER_USER" || -z "$DOCKER_PASS" ]]; then
   echo "DOCKER_USER/DOCKER_PASS가 설정되지 않았습니다."
   exit 1
