@@ -76,15 +76,21 @@ pipeline {
                             file(credentialsId: 'funchat-env', variable: 'ENV_FILE'),
                             usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')
                         ]) {
-                            sh """
-                                scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "\$ENV_FILE" ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/deploy/.env
+                            sh '''
+                                set -e
 
-                                ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \$DEPLOY_USER@\$DEPLOY_HOST 'bash -se' <<'REMOTE_EOF'
+                                # scp 업로드(권한 문제)를 피하기 위해, Jenkins credential 파일 내용을
+                                # SSH stdin으로 원격 /tmp에 바로 생성한 뒤 --env-file로만 사용
+                                cat "$ENV_FILE" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST 'cat > /tmp/.funchat.env'
+
+                                ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST 'bash -se' <<'REMOTE_EOF'
                                 set -euo pipefail
 
-                                DOCKER_USER='${DOCKER_USER}'
-                                DOCKER_PASS='${DOCKER_PASS}'
-                                APP_REPLICAS='${APP_REPLICAS}'
+                                DOCKER_USER="${DOCKER_USER}"
+                                DOCKER_PASS="${DOCKER_PASS}"
+                                APP_REPLICAS="${APP_REPLICAS}"
+                                ENV_FILE="/tmp/.funchat.env"
+                                trap 'rm -f "$ENV_FILE"' EXIT
 
                                 cd ~/funchat/deploy
 
@@ -101,20 +107,20 @@ pipeline {
                                 if [ "\$ACTIVE" = "blue" ]; then INACTIVE=green; else INACTIVE=blue; fi
 
                                 # 1) infra는 항상 유지(처음만 띄우고 이후엔 변경 최소화)
-                                docker compose -f docker-compose.infra.yml up -d
+                                docker compose --env-file "\$ENV_FILE" -f docker-compose.infra.yml up -d
 
                                 # 2) 새 이미지 pull
-                                docker compose -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml pull
+                                docker compose --env-file "\$ENV_FILE" -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml pull
 
                                 # 3) 비활성(=새) 스택 기동
-                                docker compose -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml up -d --remove-orphans --scale app=\$APP_REPLICAS
+                                docker compose --env-file "\$ENV_FILE" -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml up -d --remove-orphans --scale app=\$APP_REPLICAS
 
                                 # 4) 헬스체크 대기(app 컨테이너가 여러 개여도 동작)
                                 echo 'Waiting for new stack health...'
-                                APP_IDS=\$(docker compose -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml ps -q app)
+                                APP_IDS=\$(docker compose --env-file "\$ENV_FILE" -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml ps -q app)
                                 if [ -z "\$APP_IDS" ]; then
                                   echo 'No app containers found.'
-                                  docker compose -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml ps
+                                  docker compose --env-file "\$ENV_FILE" -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml ps
                                   exit 1
                                 fi
 
@@ -139,7 +145,7 @@ pipeline {
 
                                 if [ "\$OK" != "1" ]; then
                                   echo 'New stack did not become healthy.'
-                                  docker compose -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml logs --no-color --tail=200
+                                  docker compose --env-file "\$ENV_FILE" -p funchat_\$INACTIVE -f docker-compose.\$INACTIVE.yml logs --no-color --tail=200
                                   exit 1
                                 fi
 
@@ -152,16 +158,16 @@ pipeline {
 
                                 # docker exec 기반 reload는 환경/데몬 상태에 따라 간헐 실패할 수 있어
                                 # upstream 교체 후 router를 재생성(무중단에 가깝게)해서 안정화
-                                docker compose -f docker-compose.router.yml up -d --force-recreate
+                                docker compose --env-file "\$ENV_FILE" -f docker-compose.router.yml up -d --force-recreate
                                 echo \$INACTIVE > active_color
 
                                 # 6) 구 스택 정리(원하면 주석 처리 가능)
-                                docker compose -p funchat_\$ACTIVE -f docker-compose.\$ACTIVE.yml down
+                                docker compose --env-file "\$ENV_FILE" -p funchat_\$ACTIVE -f docker-compose.\$ACTIVE.yml down
 
                                 docker logout
                                 docker image prune -f
                                 REMOTE_EOF
-                            """
+                            '''
                         }
                     }
                 }
