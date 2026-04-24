@@ -56,7 +56,7 @@ com.funchat.demo/
 
 ### 메시지·저장소 역할
 
-- **Redis Streams**: 채팅 메시지를 스트림에 적재하고 구독자가 소비한 뒤, `SimpMessagingTemplate`으로 방 단위(`/sub/room/{roomId}`) 브로드캐스트
+- **Redis Streams + Pub/Sub**: Streams로 메시지를 적재해 **내구성 있게 저장(MongoDB)** 하고, Pub/Sub로 **모든 백엔드 인스턴스가 수신**해 각 인스턴스의 `SimpMessagingTemplate`으로 방 단위(`/sub/chat/{roomId}`) 실시간 푸시
 - **MongoDB**: 채팅 메시지 영속 저장, 이력 조회(커서·역순)
 - **MySQL (JPA)**: 사용자, 채팅방 등 관계형 데이터
 

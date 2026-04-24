@@ -4,9 +4,10 @@ services:
     container_name: funchat-router
     restart: always
     ports:
-      - "80:80"
+      - '80:80'
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       # Jenkins가 이 파일을 blue/green으로 교체함
       - ./nginx/upstream.conf:/etc/nginx/conf.d/upstream.conf:ro
     networks:
