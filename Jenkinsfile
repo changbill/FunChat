@@ -150,8 +150,9 @@ pipeline {
                                   cp nginx/upstream.green.conf nginx/upstream.conf
                                 fi
 
-                                docker compose -f docker-compose.router.yml up -d
-                                docker exec funchat-router nginx -s reload
+                                # docker exec 기반 reload는 환경/데몬 상태에 따라 간헐 실패할 수 있어
+                                # upstream 교체 후 router를 재생성(무중단에 가깝게)해서 안정화
+                                docker compose -f docker-compose.router.yml up -d --force-recreate
                                 echo \$INACTIVE > active_color
 
                                 # 6) 구 스택 정리(원하면 주석 처리 가능)
