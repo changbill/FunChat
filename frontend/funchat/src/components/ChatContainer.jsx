@@ -5,6 +5,7 @@ import MessageList from './MessageList'
 import SockJS from 'sockjs-client'
 import { over } from 'stompjs'
 import { getAccessToken } from '../utils/auth'
+import { API_BASE } from '../utils/http'
 import { normalizeChatMessage, parseStompBody } from '../utils/chatMessage'
 import '../css/ChatRoom.css'
 
@@ -15,7 +16,6 @@ const ChatContainer = () => {
   const [inputMessage, setInputMessage] = useState('')
   const { roomId } = useParams()
   const navigate = useNavigate()
-  const API_BASE = ''
   /** 같은 방에서 leave가 중복되면 백엔드에서 오류 가능 → 한 번만 전송 */
   const leaveSentRef = useRef(false)
   /** GET 히스토리 다음 페이지 커서·hasNext (스크롤 상단에서 과거 메시지 로드) */
@@ -50,7 +50,7 @@ const ChatContainer = () => {
           leaveSentRef.current = false
         })
     },
-    [API_BASE, roomId],
+    [roomId],
   )
 
   const loadOlderMessages = useCallback(async () => {
@@ -106,7 +106,7 @@ const ChatContainer = () => {
       loadingOlderRef.current = false
       setLoadingOlder(false)
     }
-  }, [API_BASE, roomId])
+  }, [roomId])
 
   const handleHistoryScroll = useCallback(
     (e) => {
@@ -221,7 +221,7 @@ const ChatContainer = () => {
         /* ignore */
       }
     }
-  }, [API_BASE, roomId])
+  }, [roomId])
 
   useEffect(() => {
     const onPageHide = () => {

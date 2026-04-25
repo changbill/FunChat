@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import '../css/RoomList.css'
-import { clearAuth, getAccessToken } from '../utils/auth'
+import { clearAuth } from '../utils/auth'
 import RefreshButton from './RefreshButton'
-
-const API_BASE = ''
+import { API_BASE, authHeaderRecord } from '../utils/http'
 
 const RoomList = () => {
   const PAGE_SIZE = 20
@@ -22,11 +21,6 @@ const RoomList = () => {
 
   const navigate = useNavigate()
   const location = useLocation()
-
-  const authHeaders = () => {
-    const token = getAccessToken()
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  }
 
   const handleAuthError = () => {
     clearAuth()
@@ -58,7 +52,7 @@ const RoomList = () => {
 
         const res = await fetch(url, {
           credentials: 'include',
-          headers: authHeaders(),
+          headers: authHeaderRecord(),
         })
         if (res.status === 401 || res.status === 403) {
           clearAuth()
@@ -101,7 +95,7 @@ const RoomList = () => {
         else setRefreshing(false)
       }
     },
-    [API_BASE, PAGE_SIZE, navigate],
+    [PAGE_SIZE, navigate],
   )
 
   useEffect(() => {
@@ -122,7 +116,7 @@ const RoomList = () => {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...authHeaders(),
+          ...authHeaderRecord(),
         },
         body: JSON.stringify({
           title,
@@ -158,7 +152,7 @@ const RoomList = () => {
       const res = await fetch(`${API_BASE}/api/rooms/${roomId}/enter`, {
         method: 'POST',
         credentials: 'include',
-        headers: authHeaders(),
+        headers: authHeaderRecord(),
       })
       if (res.status === 401 || res.status === 403) {
         handleAuthError()

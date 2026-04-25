@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import '../css/LoginPage.css'
 import { clearAuth } from '../utils/auth'
-
-const API_BASE = ''
+import { API_BASE, readJsonOrTextPayload } from '../utils/http'
 
 const SignupPage = () => {
   const [email, setEmail] = useState('')
@@ -25,10 +24,7 @@ const SignupPage = () => {
         body: JSON.stringify({ email, password, nickname }),
       })
 
-      const contentType = res.headers.get('content-type') ?? ''
-      const data = contentType.includes('application/json')
-        ? await res.json()
-        : { message: (await res.text()) || '서버 응답을 해석하지 못했습니다.' }
+      const data = await readJsonOrTextPayload(res)
       if (!res.ok || data?.code !== 200) {
         throw new Error(data?.message ?? '회원가입에 실패했습니다.')
       }

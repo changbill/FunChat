@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import '../css/LoginPage.css'
 import { saveAuth, resolveAuthSession } from '../utils/auth'
-
-const API_BASE = ''
+import { API_BASE, readJsonOrTextPayload } from '../utils/http'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
@@ -35,10 +34,7 @@ const LoginPage = () => {
         body: JSON.stringify({ email, password }),
       })
 
-      const contentType = res.headers.get('content-type') ?? ''
-      const data = contentType.includes('application/json')
-        ? await res.json()
-        : { message: (await res.text()) || '서버 응답을 해석하지 못했습니다.' }
+      const data = await readJsonOrTextPayload(res)
       if (!res.ok || !data?.body?.accessToken) {
         throw new Error(data?.message ?? '로그인에 실패했습니다.')
       }
