@@ -61,8 +61,8 @@ public class Room extends BaseTimeEntity {
             throw new BusinessException(ErrorCode.ROOM_MAX_CAPACITY_REACHED);
         }
 
-        this.participants.add(user);
         user.enterRoom(this);
+        this.participants.add(user);
     }
 
     public void removeParticipant(User user) {

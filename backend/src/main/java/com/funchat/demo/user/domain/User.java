@@ -56,13 +56,12 @@ public class User extends BaseTimeEntity {
     }
 
     public void enterRoom(Room room) {
-        if(this.room != room) {
-            this.room = room;
-            this.enteredAt = LocalDateTime.now();
-            return;
+        if(this.room != null) {
+            throw new BusinessException(ErrorCode.ROOM_USER_ALREADY_JOINED);
         }
 
-        throw new BusinessException(ErrorCode.ROOM_USER_ALREADY_JOINED);
+        this.room = room;
+        this.enteredAt = LocalDateTime.now();
     }
 
     public void leaveRoom() {

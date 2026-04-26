@@ -1,13 +1,28 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
+    url: jdbc:h2:mem:testdb;MODE=MySQL;NON_KEYWORDS=USER
     driver-class-name: org.h2.Driver
     username: sa
     password: 1234
 
   jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: create-drop
     show-sql: true
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  mongodb:
+    host: localhost
+    port: 27017
+    database: funchat-test
+
+jwt:
+  secret: v3eryasdafwfqefqefacaseAspdfiqjwfiqejfpjasfipaefasfasfaefqfdqdqwdencoded=
+  access-expiration: 3600000
+  refresh-expiration: 86400000
 

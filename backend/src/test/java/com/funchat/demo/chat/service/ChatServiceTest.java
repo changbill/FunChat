@@ -10,62 +10,107 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
+import static com.funchat.demo.global.constants.ChatConstants.MESSAGE_CONTENT;
+import static com.funchat.demo.global.constants.ChatConstants.MESSAGE_TYPE;
+import static com.funchat.demo.global.constants.ChatConstants.ROOM_ID;
+import static com.funchat.demo.global.constants.ChatConstants.SENDER_ID;
+import static com.funchat.demo.global.constants.ChatConstants.SENDER_NICKNAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest(classes = {ChatService.class, ChatServiceTest.FakeMessageRepositoryConfig.class})
+@ActiveProfiles("test")
 class ChatServiceTest {
 
-    @Mock
-    MessageRepository messageRepository;
-
-    @InjectMocks
+    @Autowired
     private ChatService chatService;
 
-    private Map<String, String> messageMap;
+    @Autowired
+    private MessageRepository messageRepository;
 
     @BeforeEach
     void setUp() {
-        messageMap = Map.of(
-                "roomId", "1",
-                "senderId", "100",
-                "senderNickname", "테스트유저",
-                "message", "안녕하세요",
-                "messageType", "TEXT"
-        );
+        messageRepository.deleteAll();
     }
 
     @Nested
     @DisplayName("몽고디비에 메시지 저장")
     class SaveMessage {
+
         @Test
         @DisplayName("성공")
-        void success() {
+        void whenMessageMapIsValid_thenSaveMessage() {
+            // given
+            Map<String, String> messageMap = Map.of(
+                    ROOM_ID, "1",
+                    SENDER_ID, "100",
+                    SENDER_NICKNAME, "테스트유저",
+                    MESSAGE_CONTENT, "안녕하세요",
+                    MESSAGE_TYPE, "TEXT"
+            );
+
+            // when
             chatService.saveMessageToMongo(messageMap);
-            verify(messageRepository, times(1)).save(any(ChatMessage.class));
+
+            // then
+            assertThat(messageRepository.findAll())
+                    .singleElement()
+                    .satisfies(message -> {
+                        assertThat(message.getRoomId()).isEqualTo(1L);
+                        assertThat(message.getSenderId()).isEqualTo(100L);
+                        assertThat(message.getSenderNickname()).isEqualTo("테스트유저");
+                        assertThat(message.getContent()).isEqualTo("안녕하세요");
+                        assertThat(message.getType()).isEqualTo(MessageType.TEXT);
+                    });
         }
 
         @Test
-        @DisplayName("roomId 형식이 숫자가 아니면 BusinessException이 발생한다")
-        void saveMessage_Fail_InvalidRoomId() {
+        @DisplayName("messageType이 없으면 TEXT 타입으로 저장한다")
+        void whenMessageTypeIsMissing_thenSaveAsTextMessage() {
             // given
-            Map<String, String> invalidMap = Map.of("roomId", "abc");
+            Map<String, String> messageMap = Map.of(
+                    ROOM_ID, "1",
+                    SENDER_ID, "100",
+                    SENDER_NICKNAME, "테스트유저",
+                    MESSAGE_CONTENT, "안녕하세요"
+            );
+
+            // when
+            chatService.saveMessageToMongo(messageMap);
+
+            // then
+            assertThat(messageRepository.findAll())
+                    .singleElement()
+                    .extracting(ChatMessage::getType)
+                    .isEqualTo(MessageType.TEXT);
+        }
+
+        @Test
+        @DisplayName("roomId 형식이 숫자가 아니면 실패")
+        void whenRoomIdIsNotNumeric_thenThrowException() {
+            // given
+            Map<String, String> invalidMap = Map.of(
+                    ROOM_ID, "abc",
+                    SENDER_ID, "100"
+            );
 
             // when & then
             assertThatThrownBy(() -> chatService.saveMessageToMongo(invalidMap))
@@ -75,10 +120,13 @@ class ChatServiceTest {
         }
 
         @Test
-        @DisplayName("senderId 형식이 숫자가 아니면 BusinessException이 발생한다")
-        void saveMessage_Fail_InvalidSenderId() {
+        @DisplayName("senderId 형식이 숫자가 아니면 실패")
+        void whenSenderIdIsNotNumeric_thenThrowException() {
             // given
-            Map<String, String> invalidMap = Map.of("roomId", "1", "senderId", "abc");
+            Map<String, String> invalidMap = Map.of(
+                    ROOM_ID, "1",
+                    SENDER_ID, "abc"
+            );
 
             // when & then
             assertThatThrownBy(() -> chatService.saveMessageToMongo(invalidMap))
@@ -89,57 +137,135 @@ class ChatServiceTest {
     }
 
     @Nested
-    @DisplayName("getMessages (커서 기반 페이징) 테스트")
+    @DisplayName("채팅 이력 조회")
     class GetMessages {
 
         @Test
-        @DisplayName("첫 페이지 조회 시 (cursorId 없음) findByRoomId가 호출된다")
-        void getMessages_FirstPage() {
+        @DisplayName("첫 페이지는 roomId 기준으로 최신 메시지를 조회한다")
+        void whenCursorIsMissing_thenReturnFirstPage() {
             // given
-            Long roomId = 1L;
-            Integer size = 10;
-            ChatMessage message = ChatMessage.createMessage(roomId, 100L, "닉네임", "안녕", MessageType.TEXT);
-
-            // Slice 객체 모킹 (데이터 1개 존재, 다음 페이지 없음)
-            Slice<ChatMessage> slice = new SliceImpl<>(List.of(message), PageRequest.of(0, size), false);
-            when(messageRepository.findByRoomId(eq(roomId), any(Pageable.class))).thenReturn(slice);
+            ChatMessage first = saveMessage(1L, "첫 번째");
+            ChatMessage second = saveMessage(1L, "두 번째");
+            saveMessage(2L, "다른 방 메시지");
 
             // when
-            ChatHistoryResponse response = chatService.getMessages(roomId, null, size);
+            ChatHistoryResponse response = chatService.getMessages(1L, null, 10);
 
             // then
-            assertThat(response.messages()).hasSize(1);
+            assertThat(response.messages()).hasSize(2);
+            assertThat(response.messages())
+                    .extracting("messageId")
+                    .containsExactly(second.getId(), first.getId());
             assertThat(response.hasNext()).isFalse();
-            verify(messageRepository).findByRoomId(eq(roomId), any(Pageable.class));
+            assertThat(response.nextCursorId()).isNull();
         }
 
         @Test
-        @DisplayName("다음 페이지가 있는 경우 마지막 메시지의 ID가 다음 커서가 된다")
-        void getMessages_NextCursor() {
+        @DisplayName("다음 페이지가 있으면 마지막 메시지 ID를 nextCursorId로 반환한다")
+        void whenMoreMessagesExist_thenReturnNextCursorId() {
             // given
-            Long roomId = 1L;
-            String cursorId = "current-cursor-id";
-            ChatMessage msg1 = createMockMessage("id-1");
-            ChatMessage msg2 = createMockMessage("id-2");
-
-            Slice<ChatMessage> slice = new SliceImpl<>(List.of(msg1, msg2), PageRequest.of(0, 2), true);
-            when(messageRepository.findByRoomIdAndIdLessThan(eq(roomId), eq(cursorId), any(Pageable.class)))
-                    .thenReturn(slice);
+            ChatMessage first = saveMessage(1L, "첫 번째");
+            ChatMessage second = saveMessage(1L, "두 번째");
+            ChatMessage third = saveMessage(1L, "세 번째");
 
             // when
-            ChatHistoryResponse response = chatService.getMessages(roomId, cursorId, 2);
+            ChatHistoryResponse response = chatService.getMessages(1L, null, 2);
 
             // then
+            assertThat(response.messages())
+                    .extracting("messageId")
+                    .containsExactly(third.getId(), second.getId());
             assertThat(response.hasNext()).isTrue();
-            assertThat(response.nextCursorId()).isEqualTo("id-2"); // 리스트의 마지막 요소 ID
-            verify(messageRepository).findByRoomIdAndIdLessThan(eq(roomId), eq(cursorId), any(Pageable.class));
+            assertThat(response.nextCursorId()).isEqualTo(second.getId());
+
+            ChatHistoryResponse nextPage = chatService.getMessages(1L, response.nextCursorId(), 2);
+            assertThat(nextPage.messages())
+                    .extracting("messageId")
+                    .containsExactly(first.getId());
+            assertThat(nextPage.hasNext()).isFalse();
         }
     }
 
-    // 테스트용 헬퍼 메서드 (ChatMessage 필드에 직접 접근이 어렵거나 ID 설정이 필요할 때)
-    private ChatMessage createMockMessage(String id) {
-        ChatMessage message = ChatMessage.createMessage(1L, 100L, "닉네임", "내용", MessageType.TEXT);
-        ReflectionTestUtils.setField(message, "id", id);
-        return message;
+    private ChatMessage saveMessage(Long roomId, String content) {
+        return messageRepository.save(ChatMessage.createMessage(roomId, 100L, "닉네임", content, MessageType.TEXT));
+    }
+
+    @TestConfiguration
+    static class FakeMessageRepositoryConfig {
+
+        @Bean
+        @Primary
+        MessageRepository messageRepository() {
+            AtomicLong sequence = new AtomicLong();
+            List<ChatMessage> messages = new ArrayList<>();
+
+            return (MessageRepository) Proxy.newProxyInstance(
+                    MessageRepository.class.getClassLoader(),
+                    new Class<?>[]{MessageRepository.class},
+                    (proxy, method, args) -> {
+                        String methodName = method.getName();
+
+                        if (methodName.equals("save")) {
+                            ChatMessage message = (ChatMessage) args[0];
+                            if (message.getId() == null) {
+                                ReflectionTestUtils.setField(message, "id", String.format("%024d", sequence.incrementAndGet()));
+                            }
+                            messages.add(message);
+                            return message;
+                        }
+
+                        if (methodName.equals("deleteAll") && (args == null || args.length == 0)) {
+                            messages.clear();
+                            return null;
+                        }
+
+                        if (methodName.equals("findAll") && (args == null || args.length == 0)) {
+                            return List.copyOf(messages);
+                        }
+
+                        if (methodName.equals("findByRoomId")) {
+                            Long roomId = (Long) args[0];
+                            int size = ((org.springframework.data.domain.Pageable) args[1]).getPageSize();
+                            return slice(messages.stream()
+                                    .filter(message -> message.getRoomId().equals(roomId))
+                                    .sorted(Comparator.comparing(ChatMessage::getId).reversed())
+                                    .toList(), size);
+                        }
+
+                        if (methodName.equals("findByRoomIdAndIdLessThan")) {
+                            Long roomId = (Long) args[0];
+                            String cursorId = (String) args[1];
+                            int size = ((org.springframework.data.domain.Pageable) args[2]).getPageSize();
+                            return slice(messages.stream()
+                                    .filter(message -> message.getRoomId().equals(roomId))
+                                    .filter(message -> message.getId().compareTo(cursorId) < 0)
+                                    .sorted(Comparator.comparing(ChatMessage::getId).reversed())
+                                    .toList(), size);
+                        }
+
+                        if (methodName.equals("toString")) {
+                            return "FakeMessageRepository";
+                        }
+
+                        if (methodName.equals("hashCode")) {
+                            return System.identityHashCode(proxy);
+                        }
+
+                        if (methodName.equals("equals")) {
+                            return proxy == args[0];
+                        }
+
+                        throw new UnsupportedOperationException("Unsupported repository method: " + method);
+                    }
+            );
+        }
+
+        private static Slice<ChatMessage> slice(List<ChatMessage> sortedMessages, int size) {
+            boolean hasNext = sortedMessages.size() > size;
+            List<ChatMessage> content = sortedMessages.stream()
+                    .limit(size)
+                    .toList();
+            return new SliceImpl<>(content, PageRequest.of(0, size), hasNext);
+        }
     }
 }

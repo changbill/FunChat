@@ -87,6 +87,9 @@ public class RoomService {
         }
 
         User newManager = findUserById(newManagerId);
+        if (!userRepository.existsByIdAndRoom_Id(newManagerId, roomId)) {
+            throw new BusinessException(ErrorCode.ROOM_USER_NOT_PARTICIPANT);
+        }
 
         room.delegateManager(newManager);
         messageBrokerChatService.sendNoticeToRedisStreams(room.getId(), newManager.getNickname(), MessageType.DELEGATE);

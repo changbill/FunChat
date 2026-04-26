@@ -1,5 +1,7 @@
 package com.funchat.demo.user.service;
 
+import com.funchat.demo.chat.service.ChatFanoutBroker;
+import com.funchat.demo.chat.service.ChatPersistBroker;
 import com.funchat.demo.auth.domain.dto.TokenResponse;
 import com.funchat.demo.auth.service.JwtTokenProvider;
 import com.funchat.demo.chat.service.redis.RedisService;
@@ -9,75 +11,81 @@ import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.UserRepository;
 import com.funchat.demo.user.domain.dto.LoginRequest;
 import com.funchat.demo.user.domain.dto.SignUpRequest;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@SpringBootTest
+@ActiveProfiles("test")
+@Transactional
 class UserServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
-    @Mock
-    private RedisService redisService;
-    @Mock
-    private PasswordEncoder passwordEncoder;
-    @Mock
-    private JwtTokenProvider jwtTokenProvider;
-
-    @InjectMocks
+    @Autowired
     private UserService userService;
 
-    private User user;
+    @Autowired
+    private UserRepository userRepository;
 
-    @BeforeEach
-    void setUp() {
-        user = User.createForTest(1L, "email", "nickname", "test.png");
-        ReflectionTestUtils.setField(user, "password", "password");
-        ReflectionTestUtils.setField(userService, "refreshExpiration", 3600000L);   // value 값 들어갈 수 있도록
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @MockitoBean
+    private RedisService redisService;
+
+    @MockitoBean
+    private ChatPersistBroker chatPersistBroker;
+
+    @MockitoBean
+    private ChatFanoutBroker chatFanoutBroker;
+
+    @AfterEach
+    void tearDown() {
+        userRepository.deleteAll();
     }
 
     @Nested
     @DisplayName("회원가입")
     class SignUp {
+
         @Test
-        @DisplayName("회원가입 성공 - 중복된 이메일과 닉네임이 없어야 한다")
-        void signUp_Success() {
+        @DisplayName("성공")
+        void whenUniqueEmailAndNickname_thenSaveEncodedPassword() {
             // given
-            SignUpRequest request = new SignUpRequest("email1", "password", "nickname2");
-            when(userRepository.existsByEmail(anyString())).thenReturn(false);
-            when(userRepository.existsByNickname(anyString())).thenReturn(false);
-            when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+            SignUpRequest request = new SignUpRequest("signup@test.com", "password", "signup");
 
             // when
             userService.signUp(request);
 
             // then
-            verify(userRepository, times(1)).save(any(User.class));
-            verify(passwordEncoder).encode("password");
+            User saved = userRepository.findByEmail("signup@test.com").orElseThrow();
+            assertThat(saved.getNickname()).isEqualTo("signup");
+            assertThat(passwordEncoder.matches("password", saved.getPassword())).isTrue();
         }
 
         @Test
-        @DisplayName("회원가입 실패 - 이미 존재하는 이메일이면 예외가 발생한다")
-        void signUp_Fail_EmailExists() {
+        @DisplayName("이미 존재하는 이메일이면 실패")
+        void whenEmailAlreadyExists_thenThrowException() {
             // given
-            SignUpRequest request = new SignUpRequest("email", "password", "테스트유저");
-            when(userRepository.existsByEmail(anyString())).thenReturn(true);
+            userRepository.save(User.createUser("duplicate@test.com", "password", "user1", ""));
+            SignUpRequest request = new SignUpRequest("duplicate@test.com", "password", "user2");
 
             // when & then
             assertThatThrownBy(() -> userService.signUp(request))
@@ -86,49 +94,62 @@ class UserServiceTest {
         }
 
         @Test
-        @DisplayName("회원가입 실패 - 이미 존재하는 닉네임이면 예외가 발생")
-        void signUp_Fail_NicknameExists() {
+        @DisplayName("이미 존재하는 닉네임이면 실패")
+        void whenNicknameAlreadyExists_thenThrowException() {
             // given
-            SignUpRequest request = new SignUpRequest("test@test.com", "password", "nickname");
-            when(userRepository.existsByEmail(anyString())).thenReturn(false);
-            when(userRepository.existsByNickname(anyString())).thenReturn(true);
+            userRepository.save(User.createUser("user1@test.com", "password", "duplicate", ""));
+            SignUpRequest request = new SignUpRequest("user2@test.com", "password", "duplicate");
 
             // when & then
             assertThatThrownBy(() -> userService.signUp(request))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NICKNAME_ALREADY_EXIST);
         }
+
+        @Test
+        @DisplayName("이메일이 비어 있으면 실패")
+        void whenEmailIsBlank_thenThrowException() {
+            // given
+            SignUpRequest request = new SignUpRequest("", "password", "nickname");
+
+            // when & then
+            assertThatThrownBy(() -> userService.signUp(request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST);
+        }
     }
 
     @Nested
     @DisplayName("로그인")
-    class login {
+    class Login {
+
         @Test
-        @DisplayName("로그인 성공 - 토큰을 반환하고 리프레시 토큰을 Redis에 저장한다")
-        void login_Success() {
+        @DisplayName("성공")
+        void whenCredentialsAreValid_thenReturnTokensAndSaveRefreshToken() {
             // given
-            LoginRequest request = new LoginRequest("email", "password");
-            when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches(anyString(), anyString())).thenReturn(true);
-            when(jwtTokenProvider.createAccessToken(anyString())).thenReturn("access-token");
-            when(jwtTokenProvider.createRefreshToken(anyString())).thenReturn("refresh-token");
+            userRepository.save(User.createUser(
+                    "login@test.com",
+                    passwordEncoder.encode("password"),
+                    "login",
+                    ""
+            ));
+            LoginRequest request = new LoginRequest("login@test.com", "password");
 
             // when
             TokenResponse response = userService.login(request);
 
             // then
-            assertThat(response.accessToken()).isEqualTo("access-token");
-            assertThat(response.refreshToken()).isEqualTo("refresh-token");
-            assertThat(response.nickname()).isEqualTo("nickname");
-            verify(redisService).saveRefreshToken(eq("email"), eq("refresh-token"), any(Duration.class));
+            assertThat(response.accessToken()).isNotBlank();
+            assertThat(response.refreshToken()).isNotBlank();
+            assertThat(response.nickname()).isEqualTo("login");
+            verify(redisService).saveRefreshToken(any(), any(), any());
         }
 
         @Test
-        @DisplayName("이메일을 발견하지 못한 경우")
-        void cantFindEmail() {
+        @DisplayName("존재하지 않는 이메일이면 실패")
+        void whenEmailDoesNotExist_thenThrowException() {
             // given
-            LoginRequest request = new LoginRequest("email1", "password");
-            when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+            LoginRequest request = new LoginRequest("missing@test.com", "password");
 
             // when & then
             assertThatThrownBy(() -> userService.login(request))
@@ -137,12 +158,16 @@ class UserServiceTest {
         }
 
         @Test
-        @DisplayName("인코딩한 비밀번호가 일치하지 않는 경우")
-        void passwordDoesntMatch() {
+        @DisplayName("비밀번호가 일치하지 않으면 실패")
+        void whenPasswordDoesNotMatch_thenThrowException() {
             // given
-            LoginRequest request = new LoginRequest("email", "password1");
-            when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-            when(passwordEncoder.matches("password1", "password")).thenReturn(false);
+            userRepository.save(User.createUser(
+                    "wrong-password@test.com",
+                    passwordEncoder.encode("password"),
+                    "wrongPassword",
+                    ""
+            ));
+            LoginRequest request = new LoginRequest("wrong-password@test.com", "invalid");
 
             // when & then
             assertThatThrownBy(() -> userService.login(request))
@@ -153,86 +178,73 @@ class UserServiceTest {
 
     @Nested
     @DisplayName("토큰 재발급")
-    class reissue {
-        @Test
-        @DisplayName("토큰 재발급 성공 - 저장된 리프레시 토큰과 일치하면 새 토큰을 발급한다")
-        void reissue_Success() {
-            // given
-            String refreshToken = "Bearer valid-refresh";
-            String pureToken = "valid-refresh";
+    class Reissue {
 
-            when(jwtTokenProvider.getEmail("valid-refresh")).thenReturn("test@test.com");
-            when(redisService.getRefreshToken("test@test.com")).thenReturn(pureToken);
-            when(jwtTokenProvider.createAccessToken("test@test.com")).thenReturn("new-access");
-            when(jwtTokenProvider.createRefreshToken("test@test.com")).thenReturn("new-refresh");
+        @Test
+        @DisplayName("성공")
+        void whenStoredRefreshTokenMatches_thenIssueNewTokens() {
+            // given
+            String email = "reissue@test.com";
+            String refreshToken = jwtTokenProvider.createRefreshToken(email);
+            when(redisService.getRefreshToken(email)).thenReturn(refreshToken);
 
             // when
-            TokenResponse response = userService.reissue(refreshToken);
+            TokenResponse response = userService.reissue("Bearer " + refreshToken);
 
             // then
-            verify(jwtTokenProvider, times(1)).validateRefreshToken(any(Optional.class));
-            assertThat(response.accessToken()).isEqualTo("new-access");
-            assertThat(response.refreshToken()).isEqualTo("new-refresh");
-            verify(redisService).saveRefreshToken(eq("test@test.com"), eq("new-refresh"), any(Duration.class));
+            assertThat(response.accessToken()).isNotBlank();
+            assertThat(response.refreshToken()).isNotBlank();
+            verify(redisService).saveRefreshToken(any(), any(), any(Duration.class));
         }
 
         @Test
-        @DisplayName("토큰 재발급 실패 - 리프레시 토큰이 탈취되어 이미 이전에 공격자가 재발급 받은 경우")
-        void reissue_refreshToken_not_matches() {
+        @DisplayName("저장된 리프레시 토큰과 다르면 삭제 후 실패")
+        void whenStoredRefreshTokenDoesNotMatch_thenDeleteTokenAndThrowException() {
             // given
-            String refreshToken = "Bearer valid-refresh";
-            String pureToken = "valid-refresh"; // 파싱 후 나올 실제 토큰 값
-            String stolenToken = "attacker-stolen-token";
-
-            when(jwtTokenProvider.getEmail(pureToken)).thenReturn("test@test.com");
-            when(redisService.getRefreshToken("test@test.com")).thenReturn(stolenToken);
+            String email = "reissue@test.com";
+            String refreshToken = jwtTokenProvider.createRefreshToken(email);
+            when(redisService.getRefreshToken(email)).thenReturn("stolen-token");
 
             // when & then
-            assertThatThrownBy(() -> userService.reissue(refreshToken))
+            assertThatThrownBy(() -> userService.reissue("Bearer " + refreshToken))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFRESH_TOKEN);
-
-            verify(redisService).deleteRefreshToken("test@test.com");
+            verify(redisService).deleteRefreshToken(email);
         }
 
         @Test
-        @DisplayName("토큰 재발급 실패 - 리프레시 토큰이 탈취되어 이전에 재발급 취소되어 지워짐")
-        void reissue_refreshToken_is_deleted() {
+        @DisplayName("저장된 리프레시 토큰이 없으면 실패")
+        void whenStoredRefreshTokenIsMissing_thenThrowException() {
             // given
-            String refreshToken = "Bearer valid-refresh";
-            String pureToken = "valid-refresh";
-
-            when(jwtTokenProvider.getEmail(pureToken)).thenReturn("test@test.com");
-            when(redisService.getRefreshToken("test@test.com")).thenReturn(null);
+            String email = "reissue@test.com";
+            String refreshToken = jwtTokenProvider.createRefreshToken(email);
+            when(redisService.getRefreshToken(email)).thenReturn(null);
 
             // when & then
-            assertThatThrownBy(() -> userService.reissue(refreshToken))
+            assertThatThrownBy(() -> userService.reissue("Bearer " + refreshToken))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFRESH_TOKEN);
-
-            verify(redisService).deleteRefreshToken("test@test.com");
+            verify(redisService).deleteRefreshToken(email);
         }
     }
 
     @Nested
     @DisplayName("로그아웃")
-    class logout {
+    class Logout {
 
         @Test
-        @DisplayName("로그아웃 성공 - 액세스 토큰을 블랙리스트에 등록하고 리프레시 토큰을 삭제한다")
-        void logout_Success() {
+        @DisplayName("성공")
+        void whenAccessTokenIsValid_thenBlacklistAccessTokenAndDeleteRefreshToken() {
             // given
-            String accessToken = "Bearer access-token";
-            when(jwtTokenProvider.getExpiration(anyString())).thenReturn(1000L);
-            when(jwtTokenProvider.getEmail(anyString())).thenReturn("test@test.com");
+            String email = "reissue@test.com";
+            String accessToken = jwtTokenProvider.createAccessToken(email);
 
             // when
-            userService.logout(accessToken);
+            userService.logout("Bearer " + accessToken);
 
             // then
-            verify(jwtTokenProvider).validateAccessToken(any(Optional.class));
-            verify(redisService).saveBlacklist(anyString(), eq("logout"), any(Duration.class));
-            verify(redisService).deleteRefreshToken("test@test.com");
+            verify(redisService).saveBlacklist(any(), any(), any(Duration.class));
+            verify(redisService).deleteRefreshToken(email);
         }
     }
 }

@@ -57,8 +57,7 @@ public class MessageBrokerChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        persistBroker.publish(message);
-        fanoutBroker.publish(message);
+        publish(message);
     }
 
     public void sendNoticeToRedisStreams(Long roomId, String nickname, MessageType type) {
@@ -79,7 +78,21 @@ public class MessageBrokerChatService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        persistBroker.publish(message);
-        fanoutBroker.publish(message);
+        publish(message);
+    }
+
+    private void publish(RedisStreamsMessageDto message) {
+        try {
+            persistBroker.publish(message);
+        } catch (Exception e) {
+            log.error("Failed to publish durable chat message. roomId={}, type={}", message.roomId(), message.type(), e);
+            throw new BusinessException(ErrorCode.MESSAGE_SEND_FAILED);
+        }
+
+        try {
+            fanoutBroker.publish(message);
+        } catch (Exception e) {
+            log.error("Failed to publish fanout chat message. roomId={}, type={}", message.roomId(), message.type(), e);
+        }
     }
 }
