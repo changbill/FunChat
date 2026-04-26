@@ -4,20 +4,20 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Document(collection = "chat_message")
+@CompoundIndex(name = "idx_chat_message_room_id_id_desc", def = "{'roomId': 1, '_id': -1}")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class ChatMessage implements Serializable {
     @Id
     private String id; // MongoDB의 _id (ObjectId)
 
-    @Indexed // 쿼리 성능을 위해 인덱스 추가
     private Long roomId;
 
     private Long senderId;
