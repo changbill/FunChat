@@ -1,8 +1,9 @@
 .env
 
-# Cursor/VSCode
+# Cursor/VSCode/Codex
 .cursor/
 .vscode/
+.codex/
 
 # Node
 **/node_modules/

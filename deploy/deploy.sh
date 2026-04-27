@@ -5,6 +5,8 @@ ENV_FILE="${ENV_FILE:-/tmp/.funchat.env}"
 APP_REPLICAS="${APP_REPLICAS:-3}"
 DOCKER_USER="${DOCKER_USER:-}"
 DOCKER_PASS="${DOCKER_PASS:-}"
+SMOKE_BASE_URL="${SMOKE_BASE_URL:-http://127.0.0.1}"
+SMOKE_PATHS="${SMOKE_PATHS:-/health /}"
 
 cleanup() {
   if [[ "${ENV_FILE}" == /tmp/* ]]; then
@@ -26,12 +28,77 @@ fi
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+router_compose() {
+  docker compose --env-file "$ENV_FILE" -f docker-compose.router.yml "$@"
+}
+
+stack_compose() {
+  local color="$1"
+  shift
+  docker compose --env-file "$ENV_FILE" -p "funchat-${color}" -f "docker-compose.${color}.yml" "$@"
+}
+
+legacy_stack_compose() {
+  local color="$1"
+  shift
+  docker compose --env-file "$ENV_FILE" -p "funchat_${color}" -f "docker-compose.${color}.yml" "$@"
+}
+
+copy_upstream() {
+  local color="$1"
+  cp "nginx/upstream.${color}.conf" nginx/upstream.conf
+}
+
+test_nginx_config() {
+  router_compose exec -T router nginx -t
+}
+
+reload_nginx() {
+  router_compose exec -T router nginx -s reload
+}
+
+http_get() {
+  local url="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 5 "$url" >/dev/null
+  else
+    wget -q -T 5 -O- "$url" >/dev/null
+  fi
+}
+
+run_smoke_tests() {
+  local path
+
+  for path in $SMOKE_PATHS; do
+    echo "Smoke test: ${SMOKE_BASE_URL}${path}"
+    http_get "${SMOKE_BASE_URL}${path}"
+  done
+}
+
+switch_upstream() {
+  local color="$1"
+
+  copy_upstream "$color"
+  test_nginx_config
+  reload_nginx
+}
+
+rollback_upstream() {
+  local previous="$1"
+
+  echo "Rolling back Nginx upstream to ${previous}..."
+  copy_upstream "$previous"
+  test_nginx_config
+  reload_nginx
+}
+
 echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
 # 0) 기본 폴더/상태 파일 준비
 mkdir -p nginx
 if [[ ! -f nginx/upstream.conf ]]; then
-  cp nginx/upstream.blue.conf nginx/upstream.conf
+  copy_upstream blue
   echo blue > active_color
 fi
 
@@ -41,18 +108,21 @@ if [[ "$ACTIVE" == "blue" ]]; then INACTIVE=green; else INACTIVE=blue; fi
 # 1) infra는 항상 유지(처음만 띄우고 이후엔 변경 최소화)
 docker compose --env-file "$ENV_FILE" -f docker-compose.infra.yml up -d
 
+# 1-1) 라우터는 재생성하지 않고 유지한다. 없으면 최초 1회만 기동한다.
+router_compose up -d
+
 # 2) 새 이미지 pull
-docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" pull
+stack_compose "$INACTIVE" pull
 
 # 3) 비활성(=새) 스택 기동
-docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" up -d --remove-orphans --scale "app=${APP_REPLICAS}"
+stack_compose "$INACTIVE" up -d --remove-orphans --scale "app=${APP_REPLICAS}"
 
 # 4) 헬스체크 대기(app 컨테이너가 여러 개여도 동작)
 echo 'Waiting for new stack health...'
-APP_IDS="$(docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps -q app)"
+APP_IDS="$(stack_compose "$INACTIVE" ps -q app)"
 if [[ -z "$APP_IDS" ]]; then
   echo 'No app containers found.'
-  docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" ps
+  stack_compose "$INACTIVE" ps
   exit 1
 fi
 
@@ -77,25 +147,32 @@ done
 
 if [[ "$OK" != "1" ]]; then
   echo 'New stack did not become healthy.'
-  docker compose --env-file "$ENV_FILE" -p "funchat-${INACTIVE}" -f "docker-compose.${INACTIVE}.yml" logs --no-color --tail=200
+  stack_compose "$INACTIVE" logs --no-color --tail=200
   exit 1
 fi
 
-# 5) 라우터(Nginx) upstream 전환 + 재생성
-if [[ "$INACTIVE" == "blue" ]]; then
-  cp nginx/upstream.blue.conf nginx/upstream.conf
-else
-  cp nginx/upstream.green.conf nginx/upstream.conf
+# 5) 라우터(Nginx) upstream 전환 + smoke test
+if ! switch_upstream "$INACTIVE"; then
+  echo 'Nginx upstream switch failed.'
+  rollback_upstream "$ACTIVE" || true
+  stack_compose "$INACTIVE" logs --no-color --tail=200 || true
+  exit 1
 fi
 
-docker compose --env-file "$ENV_FILE" -f docker-compose.router.yml up -d --force-recreate
+if ! run_smoke_tests; then
+  echo 'Smoke test failed after upstream switch.'
+  rollback_upstream "$ACTIVE" || true
+  stack_compose "$INACTIVE" logs --no-color --tail=200 || true
+  exit 1
+fi
+
 echo "$INACTIVE" > active_color
 
 # 6) 구 스택 정리
 # project name에 '_'가 들어가면 Docker DNS에서 이름 해석이 불안정할 수 있어
 # 새 배포부터는 funchat-blue/green 형태로 전환하되, 기존 funchat_blue/green도 함께 정리 시도
-docker compose --env-file "$ENV_FILE" -p "funchat-${ACTIVE}" -f "docker-compose.${ACTIVE}.yml" down \
-  || docker compose --env-file "$ENV_FILE" -p "funchat_${ACTIVE}" -f "docker-compose.${ACTIVE}.yml" down \
+stack_compose "$ACTIVE" down \
+  || legacy_stack_compose "$ACTIVE" down \
   || true
 
 docker logout

@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // 세션 사용 안함
                 .authorizeHttpRequests(auth -> auth
                         // .requestMatchers("/api/rooms/**").permitAll()   // 더미데이터 생성용
+                        .requestMatchers("/health").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll() // 로그인, 회원가입은 모두 허용
                         .requestMatchers("/ws/**", "/ws").permitAll() // SockJS 핸드셰이크 허용

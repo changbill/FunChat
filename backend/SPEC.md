@@ -77,7 +77,34 @@ Controller는 `ResponseUtil.createSuccessResponse(body)`를 사용합니다. 실
 | Access token | `Authorization` | `Bearer <access-token>` |
 | Refresh token | `Authorization-Refresh` | `Bearer <refresh-token>` |
 
-`/api/auth/signup`, `/api/auth/login`, `/api/auth/reissue`, `/api/auth/logout`, `/ws`, `/actuator/**`를 제외한 HTTP API는 인증을 요구합니다.
+`/api/auth/signup`, `/api/auth/login`, `/api/auth/reissue`, `/api/auth/logout`, `/ws`, `/health`, `/actuator/**`를 제외한 HTTP API는 인증을 요구합니다.
+
+## Health API
+
+### 애플리케이션 헬스 체크
+
+`GET /health`
+
+인증: 필요 없음
+
+정상 응답:
+
+```json
+{
+  "code": 200,
+  "message": "성공",
+  "body": {
+    "status": "UP",
+    "checks": {
+      "database": "UP",
+      "redis": "UP",
+      "mongodb": "UP"
+    }
+  }
+}
+```
+
+MySQL, Redis, MongoDB 중 하나라도 준비되지 않으면 HTTP 503을 반환합니다. 배포 compose healthcheck는 이 엔드포인트의 2xx 응답을 기준으로 신규 app 컨테이너의 준비 상태를 판단합니다.
 
 ## Auth API
 
