@@ -10,8 +10,10 @@
 | --------------- | --------------------------------------------------------------------------------------------------- |
 | 컨테이너 이미지 | Docker Hub: `changbill/funchat-backend`, `changbill/funchat-frontend`                               |
 | CI/CD           | [Jenkinsfile](./Jenkinsfile) — 백엔드·프론트엔드 Docker 빌드 → 푸시 → EC2에서 `docker compose` 배포 |
-| 배포 스택       | [`deploy/`](./deploy/) — Blue/Green + Router(Nginx) + Infra(MySQL/Mongo/Redis)                       |
+| 배포 스택       | [`deploy/`](./deploy/) — Blue/Green + Router(Nginx) + Infra(MySQL/Mongo/Redis)                      |
 | 서비스 URL      | URL: https://funchat.changee.cloud/                                                                 |
+
+배포 healthcheck는 백엔드 `/health`를 사용한다. 이 엔드포인트는 MySQL, Redis, MongoDB 연결까지 확인하며, Nginx blue/green 전환 후 smoke test에도 사용된다.
 
 ---
 
@@ -91,10 +93,31 @@ com.funchat.demo/
 
 ## 3. 인프라·모니터링
 
-| 항목                                       | 설명                                                              |
-| ------------------------------------------ | ----------------------------------------------------------------- |
-| [`deploy/`](./deploy/)                     | Blue/Green 스택(`web`,`app`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
-| [monitoring/](./monitoring/)               | Prometheus 설정, 부하 테스트용 스크립트 등                        |
+| 항목                         | 설명                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| [`deploy/`](./deploy/)       | Blue/Green 스택(`web`,`app`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
+| [monitoring/](./monitoring/) | Prometheus 설정, 부하 테스트용 스크립트 등                              |
+
+### Jenkins 배포 파일 동기화
+
+Jenkins는 원격 미니PC의 `~/funchat/deploy.next`에 `deploy/` 내부 파일을 먼저 전송한 뒤, 성공하면 `~/funchat/deploy`로 교체한다. 원격에 `deploy/deploy` 중첩 폴더나 삭제된 오래된 배포 파일이 남는 것을 막기 위한 방식이다.
+
+LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행한다. Jenkins blue/green 앱 배포는 LiveKit 컨테이너를 자동으로 기동하지 않는다.
+
+### LiveKit 단독 테스트
+
+LiveKit은 blue/green 앱 스택과 분리된 단독 compose로 먼저 검증한다.
+
+```bash
+cd deploy
+docker compose -f docker-compose.livekit.yml up -d
+```
+
+- 설정 파일: [`deploy/livekit.yml`](./deploy/livekit.yml)
+- 기본 signaling/API 포트: `7880/tcp`
+- WebRTC media 포트: `50000-50100/udp`
+- ICE TCP fallback: `7881/tcp`
+- 현재 `devkey/devsecret-change-me-before-use-000000`은 임시 테스트용이므로 외부 공개 전 반드시 교체한다.
 
 ---
 

@@ -70,9 +70,12 @@ pipeline {
             steps {
                 sshagent(credentials: ["${MINI_PC_CREDS}"]) {
                     script {
-                        // 원격 기본 디렉토리 보장 후 deploy 폴더 전송
-                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat\""
-                        sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r deploy ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/"
+                        // 원격 deploy 폴더를 임시 디렉토리에 먼저 전송한 뒤 교체한다.
+                        // scp -r deploy ~/funchat/ 반복 실행으로 deploy/deploy 중첩이나 오래된 파일이 남는 것을 막는다.
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat && rm -rf ~/funchat/deploy.next\""
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat/deploy.next\""
+                        sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r deploy/. ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/deploy.next/"
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"rm -rf ~/funchat/deploy.prev && if [ -d ~/funchat/deploy ]; then mv ~/funchat/deploy ~/funchat/deploy.prev; fi && mv ~/funchat/deploy.next ~/funchat/deploy\""
                         
                         withCredentials([
                             file(credentialsId: 'funchat-env', variable: 'ENV_FILE'),
