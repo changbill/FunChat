@@ -1,0 +1,25 @@
+# FunChat LiveKit standalone test config.
+# Replace the temporary key/secret before exposing this server beyond a private test.
+
+port: 7880
+log_level: info
+
+rtc:
+  # WebRTC media UDP ports forwarded from the router to the mini PC.
+  port_range_start: 50000
+  port_range_end: 50100
+
+  # Optional ICE TCP fallback. Forward TCP 7881 if you want this path available externally.
+  tcp_port: 7881
+
+  # Lets LiveKit discover and advertise the public IP instead of the Cloudflare Tunnel address.
+  use_external_ip: true
+
+keys:
+  devkey: devsecret-change-me-before-use-000000
+
+# Keep TURN disabled for the first direct-UDP test.
+# Enable and forward UDP 3478 later if client networks need TURN fallback.
+# turn:
+#   enabled: true
+#   udp_port: 3478

@@ -1,0 +1,11 @@
+name: funchat-livekit
+
+services:
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: funchat-livekit
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit/livekit.yml
+    volumes:
+      - ./livekit.yml:/etc/livekit/livekit.yml:ro
