@@ -9,7 +9,7 @@ pipeline {
         DEPLOY_HOST = "192.168.45.40"
         DEPLOY_USER = "changbill"
 
-        // 상시 롤링 배포 슬롯 수 (deploy/docker-compose.rolling.yml 기준 최대 3, 배포 중 surge 1개 추가)
+        // 백엔드 수평확장 개수 (docker compose up --scale)
         APP_REPLICAS = "3"
         DOCKER_HUB_CREDS = 'docker-hub-credentials'   // 젠킨스에 등록한 Docker ID
         MINI_PC_CREDS = 'minipc-ssh-key'         // 젠킨스에 등록한 MINI PC .pem 키 ID
@@ -58,7 +58,9 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')]) {
-                        sh 'bash deploy/scripts/docker-push-images.sh "${BACKEND_IMAGE}:latest" "${FRONTEND_IMAGE}:latest"'
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push ${BACKEND_IMAGE}:latest'
+                        sh 'docker push ${FRONTEND_IMAGE}:latest'
                     }
                 }
             }
@@ -68,11 +70,27 @@ pipeline {
             steps {
                 sshagent(credentials: ["${MINI_PC_CREDS}"]) {
                     script {
+                        // 원격 deploy 폴더를 임시 디렉토리에 먼저 전송한 뒤 교체한다.
+                        // scp -r deploy ~/funchat/ 반복 실행으로 deploy/deploy 중첩이나 오래된 파일이 남는 것을 막는다.
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat && rm -rf ~/funchat/deploy.next\""
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"mkdir -p ~/funchat/deploy.next\""
+                        sh "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -r deploy/. ${DEPLOY_USER}@${DEPLOY_HOST}:~/funchat/deploy.next/"
+                        sh "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${DEPLOY_USER}@${DEPLOY_HOST} \"rm -rf ~/funchat/deploy.prev && if [ -d ~/funchat/deploy ]; then mv ~/funchat/deploy ~/funchat/deploy.prev; fi && mv ~/funchat/deploy.next ~/funchat/deploy\""
+                        
                         withCredentials([
                             file(credentialsId: 'funchat-env', variable: 'ENV_FILE'),
                             usernamePassword(credentialsId: "${DOCKER_HUB_CREDS}", passwordVariable: 'DOCKER_PASS', usernameVariable: 'DOCKER_USER')
                         ]) {
-                            sh 'bash deploy/scripts/jenkins-remote-deploy.sh'
+                            sh '''
+                                set -e
+
+                                # Jenkins credential 파일 내용을 SSH stdin으로 원격 /tmp에 생성
+                                cat "$ENV_FILE" | ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST 'cat > /tmp/.funchat.env'
+
+                                # 원격 배포 스크립트 실행(젠킨스는 전송+실행만 담당)
+                                ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $DEPLOY_USER@$DEPLOY_HOST \
+                                  "chmod +x ~/funchat/deploy/deploy.sh && ENV_FILE=/tmp/.funchat.env DOCKER_USER='$DOCKER_USER' DOCKER_PASS='$DOCKER_PASS' APP_REPLICAS='$APP_REPLICAS' ~/funchat/deploy/deploy.sh"
+                            '''
                         }
                     }
                 }

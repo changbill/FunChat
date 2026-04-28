@@ -3,94 +3,50 @@ set -euo pipefail
 
 ENV_FILE="${ENV_FILE:-/tmp/.funchat.env}"
 APP_REPLICAS="${APP_REPLICAS:-3}"
-MAX_APP_REPLICAS="${MAX_APP_REPLICAS:-3}"
-MAX_ROLLING_SLOTS="${MAX_ROLLING_SLOTS:-4}"
-DOCKER_CREDS_FILE="${DOCKER_CREDS_FILE:-}"
 DOCKER_USER="${DOCKER_USER:-}"
 DOCKER_PASS="${DOCKER_PASS:-}"
 SMOKE_BASE_URL="${SMOKE_BASE_URL:-http://127.0.0.1}"
 SMOKE_PATHS="${SMOKE_PATHS:-/health /}"
 
+cleanup() {
+  if [[ "${ENV_FILE}" == /tmp/* ]]; then
+    rm -f -- "${ENV_FILE}" || true
+  fi
+}
+trap cleanup EXIT
+
+if [[ -z "$DOCKER_USER" || -z "$DOCKER_PASS" ]]; then
+  echo "DOCKER_USER/DOCKER_PASS가 설정되지 않았습니다."
+  exit 1
+fi
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ENV_FILE을 찾을 수 없습니다: $ENV_FILE"
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/scripts/deploy-common.sh"
-
-trap cleanup_deploy_runtime EXIT
-
-load_docker_credentials_file
-require_docker_credentials
-require_file "$ENV_FILE" "ENV_FILE"
-
-if ! [[ "$APP_REPLICAS" =~ ^[0-9]+$ ]] || [[ "$APP_REPLICAS" -lt 1 || "$APP_REPLICAS" -gt "$MAX_APP_REPLICAS" ]]; then
-  echo "APP_REPLICAS는 1부터 ${MAX_APP_REPLICAS} 사이의 정수여야 합니다. 현재 값: ${APP_REPLICAS}"
-  exit 1
-fi
-
-SURGE_SLOT=$((APP_REPLICAS + 1))
-if [[ "$SURGE_SLOT" -gt "$MAX_ROLLING_SLOTS" ]]; then
-  echo "surge slot ${SURGE_SLOT}이 MAX_ROLLING_SLOTS(${MAX_ROLLING_SLOTS})를 초과합니다."
-  exit 1
-fi
-
 cd "$SCRIPT_DIR"
 
 router_compose() {
   docker compose --env-file "$ENV_FILE" -f docker-compose.router.yml "$@"
 }
 
-rolling_compose() {
-  docker compose --env-file "$ENV_FILE" -p funchat-rolling -f docker-compose.rolling.yml "$@"
+stack_compose() {
+  local color="$1"
+  shift
+  docker compose --env-file "$ENV_FILE" -p "funchat-${color}" -f "docker-compose.${color}.yml" "$@"
 }
 
-slot_range() {
-  seq 1 "$APP_REPLICAS"
+legacy_stack_compose() {
+  local color="$1"
+  shift
+  docker compose --env-file "$ENV_FILE" -p "funchat_${color}" -f "docker-compose.${color}.yml" "$@"
 }
 
-write_upstream_servers() {
-  local exclude_app_slot="${1:-}"
-  local exclude_web_slot="${2:-}"
-  local include_app_surge_slot="${3:-}"
-  local include_web_surge_slot="${4:-}"
-  local slot
-  local app_count=0
-  local web_count=0
-
-  {
-    for slot in $(slot_range); do
-      if [[ "$slot" == "$exclude_web_slot" ]]; then
-        continue
-      fi
-      echo "server funchat-web-${slot}:80 resolve;"
-      web_count=$((web_count + 1))
-    done
-    if [[ -n "$include_web_surge_slot" ]]; then
-      echo "server funchat-web-${include_web_surge_slot}:80 resolve;"
-      web_count=$((web_count + 1))
-    fi
-  } > nginx/upstream.web.servers.conf.tmp
-
-  {
-    for slot in $(slot_range); do
-      if [[ "$slot" == "$exclude_app_slot" ]]; then
-        continue
-      fi
-      echo "server funchat-app-${slot}:8081 resolve;"
-      app_count=$((app_count + 1))
-    done
-    if [[ -n "$include_app_surge_slot" ]]; then
-      echo "server funchat-app-${include_app_surge_slot}:8081 resolve;"
-      app_count=$((app_count + 1))
-    fi
-  } > nginx/upstream.app.servers.conf.tmp
-
-  if [[ "$app_count" -lt 1 || "$web_count" -lt 1 ]]; then
-    rm -f nginx/upstream.web.servers.conf.tmp nginx/upstream.app.servers.conf.tmp
-    echo "Nginx upstream에는 app/web 서버가 각각 1개 이상 필요합니다."
-    return 1
-  fi
-
-  cat nginx/upstream.web.servers.conf.tmp > nginx/upstream.web.servers.conf
-  cat nginx/upstream.app.servers.conf.tmp > nginx/upstream.app.servers.conf
-  rm -f nginx/upstream.web.servers.conf.tmp nginx/upstream.app.servers.conf.tmp
+copy_upstream() {
+  local color="$1"
+  cp "nginx/upstream.${color}.conf" nginx/upstream.conf
 }
 
 test_nginx_config() {
@@ -101,15 +57,14 @@ reload_nginx() {
   router_compose exec -T router nginx -s reload
 }
 
-apply_upstream() {
-  local exclude_app_slot="${1:-}"
-  local exclude_web_slot="${2:-}"
-  local include_app_surge_slot="${3:-}"
-  local include_web_surge_slot="${4:-}"
+http_get() {
+  local url="$1"
 
-  write_upstream_servers "$exclude_app_slot" "$exclude_web_slot" "$include_app_surge_slot" "$include_web_surge_slot"
-  test_nginx_config
-  reload_nginx
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsS --max-time 5 "$url" >/dev/null
+  else
+    wget -q -T 5 -O- "$url" >/dev/null
+  fi
 }
 
 run_smoke_tests() {
@@ -121,204 +76,104 @@ run_smoke_tests() {
   done
 }
 
-wait_app_health() {
-  local slot="$1"
-  local container="funchat-app-${slot}"
-  local status
+switch_upstream() {
+  local color="$1"
 
-  echo "Waiting for ${container} health..."
-  for _ in $(seq 1 60); do
-    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container" 2>/dev/null || echo unknown)"
-    if [[ "$status" == "healthy" ]]; then
-      echo "${container} healthy."
-      return 0
-    fi
-    sleep 2
-  done
-
-  echo "${container} did not become healthy."
-  rolling_compose logs --no-color --tail=200 "app-${slot}" || true
-  return 1
+  copy_upstream "$color"
+  test_nginx_config
+  reload_nginx
 }
 
-wait_web_running() {
-  local slot="$1"
-  local container="funchat-web-${slot}"
-  local status
+rollback_upstream() {
+  local previous="$1"
 
-  echo "Waiting for ${container} running..."
-  for _ in $(seq 1 30); do
-    status="$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || echo unknown)"
-    if [[ "$status" == "running" ]]; then
-      echo "${container} running."
-      return 0
-    fi
-    sleep 2
-  done
-
-  echo "${container} did not become running."
-  rolling_compose logs --no-color --tail=200 "web-${slot}" || true
-  return 1
+  echo "Rolling back Nginx upstream to ${previous}..."
+  copy_upstream "$previous"
+  test_nginx_config
+  reload_nginx
 }
 
-ensure_slot_started() {
-  local slot="$1"
+echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
 
-  if ! docker inspect "funchat-app-${slot}" >/dev/null 2>&1; then
-    rolling_compose up -d --no-deps "app-${slot}"
-  fi
-  wait_app_health "$slot"
-
-  if ! docker inspect "funchat-web-${slot}" >/dev/null 2>&1; then
-    rolling_compose up -d --no-deps "web-${slot}"
-  fi
-  wait_web_running "$slot"
-}
-
-stop_unused_slots() {
-  local slot
-
-  if [[ "$APP_REPLICAS" -ge "$MAX_ROLLING_SLOTS" ]]; then
-    return 0
-  fi
-
-  for slot in $(seq $((APP_REPLICAS + 1)) "$MAX_ROLLING_SLOTS"); do
-    rolling_compose stop "web-${slot}" "app-${slot}" >/dev/null 2>&1 || true
-  done
-}
-
-start_app_surge() {
-  local surge_slot="$SURGE_SLOT"
-
-  echo "Starting backend surge slot ${surge_slot}..."
-  rolling_compose up -d --no-deps --force-recreate "app-${surge_slot}"
-  wait_app_health "$surge_slot"
-  apply_upstream "" "" "$surge_slot" ""
-  run_smoke_tests
-}
-
-stop_app_surge() {
-  local surge_slot="$SURGE_SLOT"
-
-  apply_upstream "" "" "" ""
-  rolling_compose stop "app-${surge_slot}" >/dev/null 2>&1 || true
-}
-
-update_app_slot() {
-  local slot="$1"
-  local surge_slot="$SURGE_SLOT"
-
-  apply_upstream "$slot" "" "$surge_slot" ""
-  rolling_compose stop "app-${slot}" >/dev/null 2>&1 || true
-
-  rolling_compose up -d --no-deps --force-recreate "app-${slot}"
-  wait_app_health "$slot"
-
-  apply_upstream "" "" "$surge_slot" ""
-  run_smoke_tests
-}
-
-start_web_surge() {
-  local surge_slot="$SURGE_SLOT"
-
-  echo "Starting frontend surge slot ${surge_slot}..."
-  rolling_compose up -d --no-deps --force-recreate "web-${surge_slot}"
-  wait_web_running "$surge_slot"
-  apply_upstream "" "" "" "$surge_slot"
-  run_smoke_tests
-}
-
-stop_web_surge() {
-  local surge_slot="$SURGE_SLOT"
-
-  apply_upstream "" "" "" ""
-  rolling_compose stop "web-${surge_slot}" >/dev/null 2>&1 || true
-}
-
-update_web_slot() {
-  local slot="$1"
-  local surge_slot="$SURGE_SLOT"
-
-  apply_upstream "" "$slot" "" "$surge_slot"
-  rolling_compose stop "web-${slot}" >/dev/null 2>&1 || true
-
-  rolling_compose up -d --no-deps --force-recreate "web-${slot}"
-  wait_web_running "$slot"
-
-  apply_upstream "" "" "" "$surge_slot"
-  run_smoke_tests
-}
-
-docker_login_with_credentials
-
+# 0) 기본 폴더/상태 파일 준비
 mkdir -p nginx
+if [[ ! -f nginx/upstream.conf ]]; then
+  copy_upstream blue
+  echo blue > active_color
+fi
 
-# 1) infra는 항상 유지한다. 최초 실행 시 네트워크와 데이터 저장소를 만든다.
+ACTIVE="$(cat active_color 2>/dev/null || echo blue)"
+if [[ "$ACTIVE" == "blue" ]]; then INACTIVE=green; else INACTIVE=blue; fi
+
+# 1) infra는 항상 유지(처음만 띄우고 이후엔 변경 최소화)
 docker compose --env-file "$ENV_FILE" -f docker-compose.infra.yml up -d
 
-# 2) 새 이미지 pull
-rolling_compose pull
-
-# 3) 롤링 슬롯이 없거나 부족하면 먼저 현재 이미지로 전체 슬롯을 준비한다.
-for slot in $(slot_range); do
-  ensure_slot_started "$slot"
-done
-
-# 4) 라우터는 재생성하지 않고 유지한다. 없으면 최초 1회만 기동한다.
-write_upstream_servers "" ""
+# 1-1) 라우터는 재생성하지 않고 유지한다. 없으면 최초 1회만 기동한다.
 router_compose up -d
-test_nginx_config
-reload_nginx
-run_smoke_tests
-stop_unused_slots
 
-echo "Surge rolling deploy uses steady replicas=${APP_REPLICAS}, surge slot=${SURGE_SLOT}."
+# 2) 새 이미지 pull
+stack_compose "$INACTIVE" pull
 
-# 5) backend app을 한 슬롯씩 교체한다.
-APP_SURGE_STARTED=0
-CURRENT_APP_SLOT=""
-cleanup_app_surge() {
-  if [[ "$APP_SURGE_STARTED" == "1" ]]; then
-    echo "Keeping backend surge slot ${SURGE_SLOT} in upstream after deployment failure."
-    apply_upstream "$CURRENT_APP_SLOT" "" "$SURGE_SLOT" "" || true
+# 3) 비활성(=새) 스택 기동
+stack_compose "$INACTIVE" up -d --remove-orphans --scale "app=${APP_REPLICAS}"
+
+# 4) 헬스체크 대기(app 컨테이너가 여러 개여도 동작)
+echo 'Waiting for new stack health...'
+APP_IDS="$(stack_compose "$INACTIVE" ps -q app)"
+if [[ -z "$APP_IDS" ]]; then
+  echo 'No app containers found.'
+  stack_compose "$INACTIVE" ps
+  exit 1
+fi
+
+OK=0
+for _ in $(seq 1 60); do
+  ALL_HEALTHY=1
+  for id in $APP_IDS; do
+    STATUS="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}nohealth{{end}}' "$id" 2>/dev/null || echo unknown)"
+    if [[ "$STATUS" != "healthy" ]]; then
+      ALL_HEALTHY=0
+      break
+    fi
+  done
+
+  if [[ "$ALL_HEALTHY" == "1" ]]; then
+    OK=1
+    echo 'New stack healthy.'
+    break
   fi
-}
-trap 'cleanup_app_surge; cleanup_deploy_runtime' EXIT
-
-start_app_surge
-APP_SURGE_STARTED=1
-for slot in $(slot_range); do
-  echo "Rolling update backend app slot ${slot}/${APP_REPLICAS}..."
-  CURRENT_APP_SLOT="$slot"
-  update_app_slot "$slot"
-  CURRENT_APP_SLOT=""
+  sleep 2
 done
-stop_app_surge
-APP_SURGE_STARTED=0
-trap cleanup_deploy_runtime EXIT
 
-# 6) frontend web을 한 슬롯씩 교체한다.
-WEB_SURGE_STARTED=0
-CURRENT_WEB_SLOT=""
-cleanup_web_surge() {
-  if [[ "$WEB_SURGE_STARTED" == "1" ]]; then
-    echo "Keeping frontend surge slot ${SURGE_SLOT} in upstream after deployment failure."
-    apply_upstream "" "$CURRENT_WEB_SLOT" "" "$SURGE_SLOT" || true
-  fi
-}
-trap 'cleanup_web_surge; cleanup_deploy_runtime' EXIT
+if [[ "$OK" != "1" ]]; then
+  echo 'New stack did not become healthy.'
+  stack_compose "$INACTIVE" logs --no-color --tail=200
+  exit 1
+fi
 
-start_web_surge
-WEB_SURGE_STARTED=1
-for slot in $(slot_range); do
-  echo "Rolling update frontend web slot ${slot}/${APP_REPLICAS}..."
-  CURRENT_WEB_SLOT="$slot"
-  update_web_slot "$slot"
-  CURRENT_WEB_SLOT=""
-done
-stop_web_surge
-WEB_SURGE_STARTED=0
-trap cleanup_deploy_runtime EXIT
+# 5) 라우터(Nginx) upstream 전환 + smoke test
+if ! switch_upstream "$INACTIVE"; then
+  echo 'Nginx upstream switch failed.'
+  rollback_upstream "$ACTIVE" || true
+  stack_compose "$INACTIVE" logs --no-color --tail=200 || true
+  exit 1
+fi
 
-docker_logout_if_needed
+if ! run_smoke_tests; then
+  echo 'Smoke test failed after upstream switch.'
+  rollback_upstream "$ACTIVE" || true
+  stack_compose "$INACTIVE" logs --no-color --tail=200 || true
+  exit 1
+fi
+
+echo "$INACTIVE" > active_color
+
+# 6) 구 스택 정리
+# project name에 '_'가 들어가면 Docker DNS에서 이름 해석이 불안정할 수 있어
+# 새 배포부터는 funchat-blue/green 형태로 전환하되, 기존 funchat_blue/green도 함께 정리 시도
+stack_compose "$ACTIVE" down \
+  || legacy_stack_compose "$ACTIVE" down \
+  || true
+
+docker logout
 docker image prune -f

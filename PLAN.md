@@ -174,7 +174,7 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 
 기준일: 2026-04-27
 
-기존 배포는 Docker Compose 기반 blue/green 스택과 Nginx router를 사용했다. 다만 healthcheck가 포트 오픈만 확인하고, 라우터 전환 시 Nginx 컨테이너를 재생성하며, 전환 직후 구 스택을 바로 내리기 때문에 HTTP 요청 단절 가능성이 남아 있었다.
+현재 배포는 Docker Compose 기반 blue/green 스택과 Nginx router를 사용한다. 다만 healthcheck가 포트 오픈만 확인하고, 라우터 전환 시 Nginx 컨테이너를 재생성하며, 전환 직후 구 스택을 바로 내리기 때문에 HTTP 요청 단절 가능성이 남아 있다.
 
 이번 실행 범위는 `P0: 전환 중 즉시 장애를 막는 필수 작업`으로 제한한다. WebSocket graceful shutdown, 구 스택 drain, 프론트엔드 재연결, 불변 이미지 태그, DB 무중단 마이그레이션 원칙, 운영 관측 지표 고도화는 이번 작업에서 제외하고 후속 작업으로 미룬다.
 
@@ -200,10 +200,10 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 
 | 우선순위 | 상태 | 작업 | 대상 파일/영역 | 완료 기준 |
 | --- | --- | --- | --- | --- |
-| P0-1 | 완료 | Health Check를 애플리케이션 레벨로 개선한다. `/health`가 DB, Redis, MongoDB 연결과 애플리케이션 준비 상태를 확인하도록 한다. | `backend/src/main/resources/application.yml`, `SecurityConfig`, 신규 health controller/indicator, 기존 blue/green compose, `deploy/deploy.sh` | 신규 app 컨테이너가 포트 오픈만으로 healthy가 되지 않고, 실제 의존성 준비 후에만 배포 전환 대상으로 인정된다. |
+| P0-1 | 완료 | Health Check를 애플리케이션 레벨로 개선한다. `/health`가 DB, Redis, MongoDB 연결과 애플리케이션 준비 상태를 확인하도록 한다. | `backend/src/main/resources/application.yml`, `SecurityConfig`, 신규 health controller/indicator, `deploy/docker-compose.blue.yml`, `deploy/docker-compose.green.yml`, `deploy/deploy.sh` | 신규 app 컨테이너가 포트 오픈만으로 healthy가 되지 않고, 실제 의존성 준비 후에만 배포 전환 대상으로 인정된다. |
 | P0-2 | 완료 | Nginx 전환 방식을 컨테이너 재생성에서 reload로 바꾼다. upstream 파일 교체 후 `nginx -t`를 통과할 때만 `nginx -s reload`를 실행한다. | `deploy/deploy.sh`, `deploy/docker-compose.router.yml`, `deploy/nginx/*.conf` | router 컨테이너를 `--force-recreate`하지 않고 upstream 전환이 가능하며, 설정 오류 시 기존 upstream이 유지된다. |
 | P0-3 | 완료 | 전환 후 smoke test를 추가한다. Nginx를 통해 새 upstream의 `/health`와 프론트 루트 응답을 확인한다. | `deploy/deploy.sh` | Nginx reload 후 실제 외부 경로 기준 검증이 실패하면 active color를 갱신하지 않고 롤백 절차로 넘어간다. |
-| P0-4 | 완료 | 자동 롤백 전략을 추가한다. 전환 실패 또는 smoke test 실패 시 이전 upstream 파일로 복원하고 Nginx reload를 수행하며, 새 스택 로그를 남긴다. | `deploy/deploy.sh`, 기존 blue/green upstream 파일 | 실패 시 이전 blue/green 스택으로 자동 복귀하고, 구 스택은 유지된다. |
+| P0-4 | 완료 | 자동 롤백 전략을 추가한다. 전환 실패 또는 smoke test 실패 시 이전 upstream 파일로 복원하고 Nginx reload를 수행하며, 새 스택 로그를 남긴다. | `deploy/deploy.sh`, `deploy/nginx/upstream.*.conf` | 실패 시 이전 blue/green 스택으로 자동 복귀하고, 구 스택은 유지된다. |
 
 ### 이번 작업에서 제외하는 후속 과제
 
@@ -227,55 +227,7 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 
 - 이번 P0 범위만으로는 WebSocket 장기 연결 무중단을 보장하지 않는다.
 - DB 스키마 변경이 포함된 배포는 이번 범위에서 무중단을 보장하지 않는다.
-- Cloudflare Tunnel, 공유기 NAT, 미니PC 네트워크 장애는 애플리케이션 배포 전략의 범위 밖이다. 외부 진입점 장애 대응은 별도 운영 계획이 필요하다.
-
-## 롤링 배포 전환 계획
-
-기준일: 2026-04-28
-
-배경:
-
-- 운영 대상이 클라우드 로드밸런서/오토스케일링 환경이 아니라 단일 미니PC다.
-- blue/green은 새 스택 전체를 동시에 띄워야 해서 미니PC 자원 사용량이 커진다.
-- 현재 목표는 Nginx router와 infra는 유지하고 backend/frontend 앱 슬롯만 한 개씩 교체하는 것이다.
-
-실행 계획:
-
-- [x] 기존 blue/green compose, Nginx upstream, Jenkins 호출 방식 확인
-- [x] `deploy/docker-compose.rolling.yml` 추가: 상시 `app-1..3`, `web-1..3`와 surge `app-4`, `web-4` 고정 슬롯 정의
-- [x] `deploy/deploy.sh`를 롤링 슬롯 교체 방식으로 변경
-- [x] Nginx upstream 블록은 `deploy/nginx/upstream.conf`로 분리하고, 스크립트는 server 목록 파일만 갱신하도록 변경
-- [x] backend/frontend 배포 구간 시작 시 surge 슬롯을 1회 생성하고 정상 확인 후 upstream에 투입
-- [x] surge 슬롯을 유지한 상태에서 기존 슬롯을 하나씩 upstream에서 제외하고 Nginx reload 수행
-- [x] backend 슬롯은 `/health` healthy 확인 후 재투입
-- [x] frontend 슬롯은 컨테이너 running 확인 후 재투입
-- [x] 각 슬롯 교체 후 Nginx 경유 smoke test 수행
-- [x] Jenkins의 기존 `APP_REPLICAS` 환경변수는 롤링 슬롯 수로 유지
-- [x] 불필요해진 blue/green compose와 upstream 파일 삭제
-- [x] Jenkins 원격 env 파일을 `mktemp`/`umask 077` 기반 임시 파일로 만들고, Jenkins/deploy 양쪽에서 삭제 시도
-- [x] Docker Hub 비밀번호를 SSH 명령줄 인자 대신 원격 임시 credential 파일로 전달
-- [x] 배포 중 실패해도 원격 `docker logout`을 cleanup trap에서 시도하도록 보강
-- [x] Jenkins Docker push 절차를 `deploy/scripts/docker-push-images.sh`로 분리
-- [x] Jenkins 원격 배포 절차를 `deploy/scripts/jenkins-remote-deploy.sh`로 분리
-- [x] `deploy.sh` 공통 credential/cleanup/http 함수를 `deploy/scripts/deploy-common.sh`로 분리
-- [x] README/RESEARCH/PLAN 문서 갱신
-
-검증 결과와 남은 검증:
-
-- [ ] `bash -n deploy/deploy.sh`로 스크립트 문법 검증: 현재 Windows/WSL, Git Bash 실행 권한 문제로 로컬 검증 실패. 미니PC 또는 Jenkins 실행 환경에서 재검증 필요
-- [x] `docker compose -f deploy/docker-compose.rolling.yml config`로 compose 문법 검증
-- [x] `docker compose -f deploy/docker-compose.router.yml config`로 router compose 문법 검증
-- [x] `docker compose -f deploy/docker-compose.infra.yml config`로 infra compose 문법 검증
-- [ ] 원격 미니PC에서 `APP_REPLICAS=3` 기준 최초 배포와 재배포를 각각 확인
-- [ ] 배포 중 `/health`, `/`, 로그인 API, STOMP 연결 재연결 동작을 수동 확인
-
-남은 위험:
-
-- 배포 중에는 backend 또는 frontend 컨테이너가 일시적으로 `APP_REPLICAS + 1`개까지 늘어나므로 미니PC의 CPU/RAM 여유가 필요하다.
-- `latest` 이미지 태그를 계속 쓰면 실패 슬롯을 이전 이미지로 자동 되돌리는 강한 rollback은 어렵다.
-- Docker compose 환경변수는 컨테이너 메타데이터에 남으므로, Docker 소켓 접근 권한이 있는 사용자는 secret 값을 볼 수 있다. 운영 서버의 docker 그룹 권한을 제한해야 한다.
-- WebSocket 장기 연결은 교체 대상 슬롯에서 끊길 수 있다. 클라이언트 재연결과 Spring Boot graceful shutdown은 후속 작업으로 다룬다.
-- 현재 rolling compose는 상시 최대 3개 슬롯과 surge 1개를 정의한다. 더 많은 슬롯이 필요하면 compose 서비스 정의, `MAX_APP_REPLICAS`, `MAX_ROLLING_SLOTS`를 함께 늘려야 한다.
+- Cloudflare Tunnel, 공유기 NAT, 미니PC 네트워크 장애는 애플리케이션 blue/green 전략의 범위 밖이다. 외부 진입점 장애 대응은 별도 운영 계획이 필요하다.
 
 ## 위험과 대응
 
@@ -297,4 +249,4 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 1. Phase 0 요구사항을 확정한다.
 2. LiveKit Java 연동 방식을 조사해 Phase 2 세부 구현안을 확정한다.
 3. 백엔드 `video` 패키지와 `VideoSession` API부터 작은 PR 단위로 구현한다.
-4. 롤링 배포는 미니PC에서 최초 배포와 재배포를 모두 검증하고, 이후 WebSocket graceful shutdown과 불변 이미지 태그를 후속 작업으로 진행한다.
+4. 무중단 배포 개선은 이번 작업에서 `P0-1`부터 `P0-4`까지만 실행하고, P1/P2 항목은 후속 작업으로 미룬다.

@@ -15,7 +15,7 @@ FunChat은 현재 JWT 인증, 채팅방, STOMP 채팅, Redis Streams/PubSub, Mon
 - 실시간 채팅은 SockJS/STOMP `/ws`, publish `/pub/chat/message`, subscribe `/sub/chat/{roomId}` 구조다.
 - 방 참여 여부 검증은 STOMP `SUBSCRIBE`/`SEND` 단계에서 수행된다.
 - MySQL은 User/Room, MongoDB는 채팅 메시지, Redis는 Pub/Sub, Streams, 캐시, 토큰 블랙리스트에 사용된다.
-- 배포는 Docker Compose, Nginx router, rolling backend/web 슬롯, 별도 infra compose 구조다. 이전에는 blue/green backend/web 구조였으나 미니PC 단일 호스트 운영에 맞춰 롤링 방식으로 전환했다.
+- 배포는 Docker Compose, Nginx router, blue/green backend/web, 별도 infra compose 구조다.
 - 현재 Nginx는 HTTP API와 `/ws` WebSocket 프록시만 고려하고 있으며 WebRTC용 UDP/TCP media port, TURN, SFU 라우팅은 없다.
 - Jenkins 배포 단계는 `scp -r deploy ...:~/funchat/`로 원격 `deploy` 폴더를 반복 전송한다. 이 방식은 과거 잘못 전송된 `~/funchat/deploy/deploy` 중첩 폴더를 정리하지 못하고, 삭제된 compose/nginx 파일도 원격에 잔존시킬 수 있다.
 
@@ -192,31 +192,7 @@ Jenkinsfile의 기존 전송 방식은 로컬 `deploy` 디렉터리를 원격 `~
 
 - `scp -r deploy/.`로 deploy 폴더 자체가 아니라 내부 파일만 `deploy.next`에 복사한다.
 - 원격에서 기존 `deploy`는 `deploy.prev`로 이동하고, `deploy.next`를 현재 `deploy`로 교체한다.
-- Jenkins는 앱 배포만 실행하며, LiveKit 단독 compose는 자동 기동하지 않는다.
-
-## 미니PC 롤링 배포 조사
-
-blue/green 방식은 새 스택 전체를 동시에 띄운 뒤 라우터를 전환하므로 클라우드 환경처럼 여유 자원과 로드밸런서가 있는 경우 단순하고 안전하다. 현재 운영 대상은 단일 미니PC라서 동일한 backend/frontend 스택을 두 벌 유지하는 방식은 CPU와 메모리를 더 많이 점유한다.
-
-선택한 해결책은 Docker Compose 단일 호스트에서 고정 슬롯을 두고 한 슬롯씩 교체하는 롤링 방식이다.
-
-- `docker-compose.rolling.yml`은 상시 슬롯 `app-1..3`, `web-1..3`와 배포 중 임시 surge 슬롯 `app-4`, `web-4`를 고정 이름으로 정의한다.
-- Nginx upstream 블록과 공통 설정은 `deploy/nginx/upstream.conf`에 두고, `deploy.sh`는 현재 사용 슬롯 기준의 server 목록 파일만 갱신한다.
-- backend/frontend 각 배포 구간 시작 시 surge 슬롯을 한 번 생성하고 정상 확인 후 upstream에 투입한다.
-- surge 슬롯은 해당 구간의 모든 슬롯 교체가 끝날 때까지 유지한다.
-- surge 슬롯이 트래픽을 받을 수 있는 상태에서 기존 슬롯을 하나씩 제외하고 대상 컨테이너를 `docker compose up -d --no-deps --force-recreate`로 재생성한다.
-- 모든 슬롯 교체가 끝나면 surge 슬롯은 upstream에서 제외한 뒤 중지한다.
-- 각 슬롯 교체 후 `/health`와 `/` smoke test를 Nginx 경유로 실행한다.
-
-트레이드오프:
-
-- 장점: blue/green 전체 중복 스택보다 미니PC 자원 사용량이 작고, 한 번에 영향받는 컨테이너 수가 제한된다.
-- 장점: Nginx router와 infra 컨테이너를 유지한 채 앱 슬롯만 교체한다.
-- 장점: 기존 슬롯을 빼기 전에 surge 슬롯을 먼저 투입하므로 배포 중 남은 슬롯에 트래픽이 몰리는 상황을 줄인다.
-- 장점: surge 슬롯을 각 슬롯마다 반복 생성하지 않고 backend/frontend 구간별 1회만 생성하므로 배포 시간이 짧아지고 헬스체크 반복이 줄어든다.
-- 제약: 배포 중에는 backend 또는 frontend 컨테이너가 일시적으로 `APP_REPLICAS + 1`개까지 늘어나므로 미니PC에 그만큼의 여유 자원이 필요하다.
-- 제약: 현재 이미지는 `latest` 태그를 사용하므로 실패한 슬롯을 이전 이미지로 자동 복원하는 강한 rollback은 어렵다. 실패 시 해당 슬롯은 upstream에서 제외되고 나머지 슬롯으로 서비스가 유지된다.
-- 제약: WebSocket 장기 연결은 교체 대상 슬롯에서 끊길 수 있다. 클라이언트 재연결과 서버 graceful shutdown은 별도 후속 작업이다.
+- Jenkins는 여전히 앱 blue/green 배포만 실행하며, LiveKit 단독 compose는 자동 기동하지 않는다.
 
 ## 서버 스펙 메모
 
