@@ -1,0 +1,65 @@
+x-app-template: &app-template
+  image: changbill/funchat-backend:latest
+  restart: always
+  environment:
+    SERVER_PORT: '8081'
+    SPRING_DATASOURCE_URL: jdbc:mysql://funchat-mysqldb:3306/funchat?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    SPRING_DATA_REDIS_HOST: funchat-redis
+    SPRING_DATA_MONGODB_HOST: funchat-mongodb
+    USER_ID: ${USER_ID}
+    USER_PW: ${USER_PW}
+    ROOT_PW: ${ROOT_PW}
+    JWT_SECRET: ${JWT_SECRET}
+    ACCESS_EXPIRATION: ${ACCESS_EXPIRATION}
+    REFRESH_EXPIRATION: ${REFRESH_EXPIRATION}
+    CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+  healthcheck:
+    test: ['CMD-SHELL', "wget -q -O- http://localhost:8081/health >/dev/null"]
+    interval: 5s
+    timeout: 2s
+    retries: 30
+  networks:
+    - funchat_net
+
+x-web-template: &web-template
+  image: changbill/funchat-frontend:latest
+  restart: always
+  networks:
+    - funchat_net
+
+services:
+  app-1:
+    <<: *app-template
+    container_name: funchat-app-1
+
+  app-2:
+    <<: *app-template
+    container_name: funchat-app-2
+
+  app-3:
+    <<: *app-template
+    container_name: funchat-app-3
+
+  app-4:
+    <<: *app-template
+    container_name: funchat-app-4
+
+  web-1:
+    <<: *web-template
+    container_name: funchat-web-1
+
+  web-2:
+    <<: *web-template
+    container_name: funchat-web-2
+
+  web-3:
+    <<: *web-template
+    container_name: funchat-web-3
+
+  web-4:
+    <<: *web-template
+    container_name: funchat-web-4
+
+networks:
+  funchat_net:
+    external: true

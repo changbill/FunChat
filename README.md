@@ -9,11 +9,11 @@
 | 구분            | 설명                                                                                                |
 | --------------- | --------------------------------------------------------------------------------------------------- |
 | 컨테이너 이미지 | Docker Hub: `changbill/funchat-backend`, `changbill/funchat-frontend`                               |
-| CI/CD           | [Jenkinsfile](./Jenkinsfile) — 백엔드·프론트엔드 Docker 빌드 → 푸시 → EC2에서 `docker compose` 배포 |
-| 배포 스택       | [`deploy/`](./deploy/) — Blue/Green + Router(Nginx) + Infra(MySQL/Mongo/Redis)                      |
+| CI/CD           | [Jenkinsfile](./Jenkinsfile) — 백엔드·프론트엔드 Docker 빌드 → 푸시 → 미니PC에서 `docker compose` 배포 |
+| 배포 스택       | [`deploy/`](./deploy/) — Rolling slots + Router(Nginx) + Infra(MySQL/Mongo/Redis)                   |
 | 서비스 URL      | URL: https://funchat.changee.cloud/                                                                 |
 
-배포 healthcheck는 백엔드 `/health`를 사용한다. 이 엔드포인트는 MySQL, Redis, MongoDB 연결까지 확인하며, Nginx blue/green 전환 후 smoke test에도 사용된다.
+배포 healthcheck는 백엔드 `/health`를 사용한다. 이 엔드포인트는 MySQL, Redis, MongoDB 연결까지 확인하며, 롤링 슬롯 교체 후 smoke test에도 사용된다.
 
 ---
 
@@ -24,7 +24,7 @@ funchat/
 ├── backend/                 # Spring Boot 백엔드 API·WebSocket 서버
 ├── frontend/funchat/        # 사용자 웹 (React + Vite)
 ├── monitoring/              # Prometheus 설정·부하 테스트 스크립트 (k6 등)
-├── deploy/                  # 배포용 compose/nginx(blue/green, router, infra)
+├── deploy/                  # 배포용 compose/nginx(rolling slots, router, infra)
 └── Jenkinsfile              # Docker 빌드·배포 파이프라인
 ```
 
@@ -95,18 +95,42 @@ com.funchat.demo/
 
 | 항목                         | 설명                                                                    |
 | ---------------------------- | ----------------------------------------------------------------------- |
-| [`deploy/`](./deploy/)       | Blue/Green 스택(`web`,`app`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
+| [`deploy/`](./deploy/)       | Rolling 슬롯(`app-1..3`, `web-1..3`) + surge 슬롯(`app-4`, `web-4`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
 | [monitoring/](./monitoring/) | Prometheus 설정, 부하 테스트용 스크립트 등                              |
 
 ### Jenkins 배포 파일 동기화
 
-Jenkins는 원격 미니PC의 `~/funchat/deploy.next`에 `deploy/` 내부 파일을 먼저 전송한 뒤, 성공하면 `~/funchat/deploy`로 교체한다. 원격에 `deploy/deploy` 중첩 폴더나 삭제된 오래된 배포 파일이 남는 것을 막기 위한 방식이다.
+Jenkins는 [`deploy/scripts/jenkins-remote-deploy.sh`](./deploy/scripts/jenkins-remote-deploy.sh)를 호출한다. 이 스크립트는 원격 미니PC의 `~/funchat/deploy.next`에 `deploy/` 내부 파일을 먼저 전송한 뒤, 성공하면 `~/funchat/deploy`로 교체한다. 원격에 `deploy/deploy` 중첩 폴더나 삭제된 오래된 배포 파일이 남는 것을 막기 위한 방식이다.
 
-LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행한다. Jenkins blue/green 앱 배포는 LiveKit 컨테이너를 자동으로 기동하지 않는다.
+LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행한다. Jenkins 앱 배포는 LiveKit 컨테이너를 자동으로 기동하지 않는다.
+
+### 배포 스크립트 구조
+
+| 파일 | 역할 |
+| --- | --- |
+| [`deploy/scripts/docker-push-images.sh`](./deploy/scripts/docker-push-images.sh) | Jenkins에서 Docker Hub 로그인, 이미지 push, logout 처리 |
+| [`deploy/scripts/jenkins-remote-deploy.sh`](./deploy/scripts/jenkins-remote-deploy.sh) | Jenkins에서 원격 deploy 폴더 동기화, 임시 secret 전송, 원격 배포 실행 |
+| [`deploy/scripts/deploy-common.sh`](./deploy/scripts/deploy-common.sh) | 배포 스크립트 공통 credential 로딩, cleanup, Docker login/logout, HTTP 요청 함수 |
+| [`deploy/deploy.sh`](./deploy/deploy.sh) | 미니PC에서 실행되는 롤링 배포 본체 |
+
+### 운영 배포 방식
+
+운영 배포는 미니PC 단일 호스트에 맞춘 롤링 방식이다.
+
+- `deploy/docker-compose.rolling.yml`은 상시 슬롯 3개(`app-1..3`, `web-1..3`)와 배포 중 임시 surge 슬롯 1개(`app-4`, `web-4`)를 고정 컨테이너 이름으로 정의한다.
+- `APP_REPLICAS`는 상시 사용할 슬롯 수를 의미하며 기본값은 `3`이다. 현재 상시 슬롯은 최대 3개까지 사용한다.
+- `deploy/deploy.sh`는 backend 배포 시작 시 surge backend 슬롯을 한 번 생성하고, 모든 backend 슬롯 교체 동안 upstream에 유지한다.
+- frontend도 같은 방식으로 surge frontend 슬롯을 한 번 생성하고, 모든 frontend 슬롯 교체 동안 upstream에 유지한다.
+- surge 슬롯이 유지된 상태에서 기존 슬롯을 하나씩 upstream에서 제외하고 재생성하므로, 배포 중에도 라우팅 대상 수가 `APP_REPLICAS` 아래로 내려가지 않는다.
+- Nginx upstream 블록과 공통 설정은 `deploy/nginx/upstream.conf`에 두고, 배포 중 바뀌는 server 목록만 `upstream.web.servers.conf`, `upstream.app.servers.conf`에 갱신한다.
+- 새 백엔드 슬롯은 `/health`가 healthy가 된 뒤 upstream에 투입된다.
+- 각 슬롯 교체 후 Nginx 경유 `/health`와 `/` smoke test를 실행한다.
+- backend/frontend 각 배포 구간이 끝나면 해당 surge 슬롯은 upstream에서 제외되고 중지된다.
+- 배포 중 실패하면 가용성을 우선해 진행 중이던 문제 슬롯은 제외하고 surge 슬롯은 upstream에 남긴다.
 
 ### LiveKit 단독 테스트
 
-LiveKit은 blue/green 앱 스택과 분리된 단독 compose로 먼저 검증한다.
+LiveKit은 앱 롤링 배포와 분리된 단독 compose로 먼저 검증한다.
 
 ```bash
 cd deploy
