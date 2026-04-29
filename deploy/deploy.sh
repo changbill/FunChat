@@ -146,17 +146,17 @@ wait_web_running() {
   local container="funchat-web-${slot}"
   local status
 
-  echo "Waiting for ${container} running..."
+  echo "Waiting for ${container} HTTP readiness..."
   for _ in $(seq 1 30); do
     status="$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || echo unknown)"
-    if [[ "$status" == "running" ]]; then
-      echo "${container} running."
+    if [[ "$status" == "running" ]] && docker exec "$container" wget -q -T 2 -O- http://127.0.0.1/ >/dev/null 2>&1; then
+      echo "${container} ready."
       return 0
     fi
     sleep 2
   done
 
-  echo "${container} did not become running."
+  echo "${container} did not become HTTP ready."
   rolling_compose logs --no-color --tail=200 "web-${slot}" || true
   return 1
 }
