@@ -183,7 +183,7 @@ stop_unused_slots() {
   fi
 
   for slot in $(seq $((APP_REPLICAS + 1)) "$MAX_ROLLING_SLOTS"); do
-    rolling_compose stop "web-${slot}" "app-${slot}" >/dev/null 2>&1 || true
+    rolling_compose rm -f -s "web-${slot}" "app-${slot}" >/dev/null 2>&1 || true
   done
 }
 
@@ -201,7 +201,7 @@ stop_app_surge() {
   local surge_slot="$SURGE_SLOT"
 
   apply_upstream "" "" "" ""
-  rolling_compose stop "app-${surge_slot}" >/dev/null 2>&1 || true
+  rolling_compose rm -f -s "app-${surge_slot}" >/dev/null 2>&1 || true
 }
 
 update_app_slot() {
@@ -232,7 +232,7 @@ stop_web_surge() {
   local surge_slot="$SURGE_SLOT"
 
   apply_upstream "" "" "" ""
-  rolling_compose stop "web-${surge_slot}" >/dev/null 2>&1 || true
+  rolling_compose rm -f -s "web-${surge_slot}" >/dev/null 2>&1 || true
 }
 
 update_web_slot() {
