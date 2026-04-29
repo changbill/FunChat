@@ -7,18 +7,19 @@ scrape_configs:
     static_configs:
       - targets: ['prometheus:9090']
 
-  # 2. 내 스프링 부트 앱 모니터링
-  - job_name: 'spring-boot-app'
+  # 2. 배포된 스프링 부트 앱 인스턴스별 모니터링
+  # 존재하지 않거나 실행 중이 아닌 슬롯은 Prometheus targets 화면에서 down으로 보일 수 있다.
+  - job_name: 'spring-boot-apps'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8080'] # 로컬 앱 주소
+      - targets:
+          - 'funchat-app-1:8081'
+          - 'funchat-app-2:8081'
+          - 'funchat-app-3:8081'
+          - 'funchat-app-4:8081'
 
   # 3. MySQL 모니터링
   - job_name: 'mysql'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['mysql-exporter:9104']
-
-# k6가 데이터를 밀어넣을 수 있도록 수신 대기 (Remote Write)
-remote_write:
-  - url: 'http://localhost:9090/api/v1/write'
+      - targets: ['funchat-mysql-exporter:9104']

@@ -40,6 +40,13 @@ sync_deploy_directory() {
   ssh_remote "rm -rf ~/funchat/deploy.prev && if [ -d ~/funchat/deploy ]; then mv ~/funchat/deploy ~/funchat/deploy.prev; fi && mv ~/funchat/deploy.next ~/funchat/deploy"
 }
 
+sync_monitoring_directory() {
+  ssh_remote "mkdir -p ~/funchat && rm -rf ~/funchat/monitoring.next"
+  ssh_remote "mkdir -p ~/funchat/monitoring.next"
+  scp "${SSH_OPTS[@]}" -r monitoring/. "${REMOTE}:~/funchat/monitoring.next/"
+  ssh_remote "rm -rf ~/funchat/monitoring.prev && if [ -d ~/funchat/monitoring ]; then mv ~/funchat/monitoring ~/funchat/monitoring.prev; fi && mv ~/funchat/monitoring.next ~/funchat/monitoring"
+}
+
 create_remote_secret_files() {
   REMOTE_ENV_FILE="$(ssh_remote 'umask 077 && mktemp /tmp/funchat-env.XXXXXX')"
   REMOTE_CREDS_FILE="$(ssh_remote 'umask 077 && mktemp /tmp/funchat-docker-creds.XXXXXX')"
@@ -52,6 +59,12 @@ run_remote_deploy() {
   ssh_remote "chmod +x ~/funchat/deploy/deploy.sh && ENV_FILE='$REMOTE_ENV_FILE' DOCKER_CREDS_FILE='$REMOTE_CREDS_FILE' APP_REPLICAS='$APP_REPLICAS' ~/funchat/deploy/deploy.sh"
 }
 
+run_remote_monitoring() {
+  ssh_remote "cd ~/funchat && docker compose --env-file '$REMOTE_ENV_FILE' -f monitoring/docker-compose.yml up -d prometheus grafana mysql-exporter"
+}
+
 sync_deploy_directory
+sync_monitoring_directory
 create_remote_secret_files
 run_remote_deploy
+run_remote_monitoring

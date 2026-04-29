@@ -1,6 +1,7 @@
 services:
   prometheus:
     image: prom/prometheus
+    container_name: funchat-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command:
@@ -8,27 +9,40 @@ services:
       - '--web.enable-remote-write-receiver'
     ports:
       - '9090:9090'
+    networks:
+      - funchat_net
   grafana:
     image: grafana/grafana
+    container_name: funchat-grafana
     ports:
       - '3000:3000'
     depends_on:
       - prometheus
+    networks:
+      - funchat_net
   k6:
     image: grafana/k6:latest
     container_name: k6
+    profiles:
+      - loadgen
     volumes:
       - ./scripts:/scripts
     environment:
       - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
     depends_on:
       - prometheus
+    networks:
+      - funchat_net
   mysql-exporter:
     image: prom/mysqld-exporter
-    container_name: mysql-exporter
+    container_name: funchat-mysql-exporter
     environment:
-      - 'DATA_SOURCE_NAME=exporter:exporter@(host.docker.internal:3306)/' # mysql은 실제 db 서비스 이름
+      - 'DATA_SOURCE_NAME=${EXPORTER_ID}:${EXPORTER_PW}@(funchat-mysqldb:3306)/'
     ports:
       - '9104:9104'
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
+    networks:
+      - funchat_net
+
+networks:
+  funchat_net:
+    external: true
