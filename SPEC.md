@@ -53,7 +53,9 @@
 - MySQL, MongoDB, Redis는 `deploy/docker-compose.infra.yml`로 운영한다.
 - LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행하며 앱 롤링 배포에 포함되지 않는다.
 - Jenkins의 `funchat-env` credential 파일은 배포 시 원격 `/tmp/funchat-env.XXXXXX` 임시 파일로 전송된다.
-- 원격 env 임시 파일과 Docker Hub credential 임시 파일은 `umask 077`이 적용된 `mktemp`로 생성하고, Jenkins 단계 종료 및 `deploy.sh` 종료 시 삭제를 시도한다.
+- 원격 env 임시 파일과 Docker Hub credential 임시 파일은 `umask 077`이 적용된 `mktemp`로 생성한다.
+- 원격 env 임시 파일은 앱 배포 후 monitoring compose 실행에도 재사용하므로 `jenkins-remote-deploy.sh` 종료 시 삭제를 시도한다.
+- Docker Hub credential 임시 파일은 `deploy.sh` 종료 시 삭제를 시도한다.
 - Docker Hub 비밀번호는 SSH 원격 실행 명령줄 인자로 전달하지 않고, 별도 임시 파일의 두 번째 줄로 전달한다.
 - 원격 `docker login` 이후 배포가 중간 실패해도 `deploy.sh`의 cleanup trap이 `docker logout`을 시도한다.
 - 현재 운영 이미지는 `latest` 태그를 사용한다. 실패 슬롯을 이전 이미지로 완전 자동 rollback하는 기능은 제공하지 않는다.

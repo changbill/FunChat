@@ -6,9 +6,6 @@ cleanup_deploy_runtime() {
   if [[ "$DOCKER_LOGGED_IN" == "1" ]]; then
     docker logout >/dev/null 2>&1 || true
   fi
-  if [[ "${ENV_FILE:-}" == /tmp/* ]]; then
-    rm -f -- "${ENV_FILE}" || true
-  fi
   if [[ -n "${DOCKER_CREDS_FILE:-}" && "${DOCKER_CREDS_FILE}" == /tmp/* ]]; then
     rm -f -- "${DOCKER_CREDS_FILE}" || true
   fi
