@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import '../css/RoomList.css'
 import { clearAuth } from '../utils/auth'
 import RefreshButton from './RefreshButton'
+import LogoutButton from './LogoutButton'
 import { API_BASE, authHeaderRecord } from '../utils/http'
 
 const RoomList = () => {
@@ -201,6 +202,7 @@ const RoomList = () => {
           >
             {creating ? '만드는 중...' : '방 만들기'}
           </button>
+          <LogoutButton className="room-list__logout" />
         </div>
       </div>
 

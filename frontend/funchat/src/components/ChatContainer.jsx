@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MessageInput from './MessageInput'
 import MessageList from './MessageList'
+import LogoutButton from './LogoutButton'
 import SockJS from 'sockjs-client'
 import { over } from 'stompjs'
 import { getAccessToken } from '../utils/auth'
@@ -273,13 +274,19 @@ const ChatContainer = () => {
     <section className="chat-room">
       <header className="chat-room__header">
         <h1 className="chat-room__title">채팅방</h1>
-        <button
-          type="button"
-          className="chat-room__leave"
-          onClick={endConnection}
-        >
-          방 나가기
-        </button>
+        <div className="chat-room__actions">
+          <button
+            type="button"
+            className="chat-room__leave"
+            onClick={endConnection}
+          >
+            방 나가기
+          </button>
+          <LogoutButton
+            className="chat-room__logout"
+            beforeLogout={() => callLeaveApi(false)}
+          />
+        </div>
       </header>
 
       <div className="chat-room__body">

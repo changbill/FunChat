@@ -27,6 +27,8 @@
   align-items: center;
   gap: 0.5rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .room-list__refresh {
@@ -105,6 +107,38 @@
 
 .room-list__create:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+.room-list__logout {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--room-text-muted);
+  background: transparent;
+  border: 1px solid var(--room-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s,
+    transform 0.1s;
+  white-space: nowrap;
+}
+
+.room-list__logout:hover:not(:disabled) {
+  color: var(--room-error);
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.room-list__logout:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.room-list__logout:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .room-list__error--inline {
