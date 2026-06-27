@@ -1,6 +1,6 @@
 # FunChat Backend
 
-Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STOMP(WebSocket) 실시간 메시징, Redis 기반 브로커링, MongoDB 채팅 이력 저장을 담당합니다.
+Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STOMP(WebSocket) 실시간 메시징, Redis 기반 브로커링, MongoDB 채팅 이력 저장, LiveKit 영상 세션 토큰 발급을 담당합니다.
 
 ## 기술 스택
 
@@ -24,6 +24,7 @@ Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STO
 - STOMP 기반 실시간 메시지 송수신
 - Redis Streams/PubSub 기반 메시지 저장 경로와 팬아웃 경로 분리
 - MongoDB 기반 채팅 메시지 이력 조회
+- 방 참여자용 LiveKit 영상 세션 생성/조회 및 참가 토큰 발급
 - Actuator/Prometheus 메트릭 노출
 
 ## 아키텍처
@@ -32,6 +33,7 @@ Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STO
 
 - Room/User 등 핵심 도메인 데이터는 MySQL/JPA에 저장합니다.
 - 채팅 메시지 히스토리는 MongoDB에 저장합니다.
+- 영상 세션 상태는 MySQL/JPA에 저장하고, 실제 미디어 전송은 LiveKit SFU가 담당합니다.
 - 실시간 메시지 브로커링, 팬아웃, 토큰 블랙리스트, 캐시는 Redis를 사용합니다.
 - 실시간 통신은 WebSocket(STOMP, SockJS)을 사용합니다.
 - HTTP와 STOMP 모두 JWT access token 기반 stateless 인증 정책을 사용합니다.
@@ -44,6 +46,7 @@ com.funchat.demo
 ├── user      # 회원가입, 로그인, 토큰 재발급, 로그아웃
 ├── room      # 채팅방 CRUD, 입장/퇴장, 매니저 위임
 ├── chat      # STOMP 처리, 메시지 브로커링, 채팅 이력 조회
+├── video     # 영상 세션, LiveKit 참가 토큰 발급
 ├── global    # 설정, 필터, 예외, 공통 DTO, AOP, 상수
 └── util      # ResponseUtil, ParseUtil 등 공통 유틸
 ```
@@ -84,6 +87,9 @@ WebSocket은 클라이언트가 `/ws`로 SockJS 연결한 뒤 STOMP native heade
 | POST | `/api/rooms/{roomId}/enter` | 필요 | 채팅방 입장 |
 | POST | `/api/rooms/{roomId}/leave` | 필요 | 채팅방 퇴장 |
 | PATCH | `/api/rooms/{roomId}/manager?newManagerId={userId}` | 필요 | 매니저 위임 |
+| POST | `/api/rooms/{roomId}/video/sessions` | 필요 | 방 영상 세션 시작 또는 활성 세션 반환 |
+| GET | `/api/rooms/{roomId}/video/session` | 필요 | 방 활성 영상 세션 조회 |
+| POST | `/api/rooms/{roomId}/video/token` | 필요 | LiveKit publish/subscribe 참가 토큰 발급 |
 | GET | `/api/chat/messages/{roomId}` | 필요 | 커서 기반 채팅 이력 조회 |
 | GET | `/actuator/health` | 불필요 | 헬스 체크 |
 | GET | `/actuator/prometheus` | 불필요 | Prometheus 메트릭 |
@@ -150,6 +156,10 @@ STOMP 연결 시 native header `Authorization`에 access token을 전달합니�
 | `JWT_SECRET` | JWT 서명 secret |
 | `ACCESS_EXPIRATION` | Access token 만료 시간 |
 | `REFRESH_EXPIRATION` | Refresh token 만료 시간 |
+| `LIVEKIT_API_KEY` | LiveKit API key |
+| `LIVEKIT_API_SECRET` | LiveKit 참가 토큰 서명 secret |
+| `LIVEKIT_URL` | 클라이언트가 접속할 LiveKit signaling URL |
+| `LIVEKIT_TOKEN_TTL_SECONDS` | LiveKit 참가 토큰 만료 시간(초), 기본 3600 |
 | `CORS_ALLOWED_ORIGINS` | 허용 origin 목록, comma-separated |
 
 인프라 컨테이너 실행:

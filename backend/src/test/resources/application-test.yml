@@ -26,3 +26,8 @@ jwt:
   access-expiration: 3600000
   refresh-expiration: 86400000
 
+livekit:
+  api-key: test-livekit-key
+  api-secret: test-livekit-secret-value-for-hmac-signing
+  url: http://localhost:7880
+  token-ttl-seconds: 3600

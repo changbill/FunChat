@@ -24,12 +24,19 @@
 | 테스트 기반 | 완료 | JUnit, Testcontainers, H2 설정과 주요 서비스 테스트 존재 |
 | 운영 메트릭 | 완료 | Actuator, Prometheus registry 구성 |
 | 백엔드 문서 | 완료 | README/SPEC/PLAN/testing/AGENTS 중심으로 통합 |
+| 영상 세션 API | 완료 | LiveKit 참가 토큰 발급을 위한 세션 생성/조회/토큰 API 구현 |
 
 ## 다음 작업
 
 | 우선순위 | 작업 | 완료 조건 |
 | --- | --- | --- |
-| - | 현재 계획된 후속 작업 없음 | 새 기능/정책 변경 시 갱신 |
+| P1 | LiveKit webhook 수신 | room/participant 이벤트를 세션 상태에 반영한다 |
+| P2 | LiveKit Admin API 연동 | 세션 종료 시 실제 LiveKit room 정리까지 수행한다 |
+
+## 다음 단계 검증 계획
+
+- LiveKit webhook 테스트에서 서명 검증, 이벤트별 상태 전이, 중복 이벤트 처리를 검증한다.
+- LiveKit Admin API 테스트에서 room 종료 성공과 외부 API 실패 처리를 검증한다.
 
 ## 변경 시 체크리스트
 

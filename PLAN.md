@@ -116,23 +116,24 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 
 ### Phase 1: 백엔드 도메인/API 골격
 
-- [ ] `backend/src/main/java/com/funchat/demo/video` 패키지 추가
-- [ ] `VideoSession` 엔티티와 repository 추가
-- [ ] `VideoSessionService`에서 Room 참여자/매니저 권한 검증 연결
-- [ ] 세션 시작/조회/종료 API 추가
-- [ ] 공통 예외 코드 추가
-- [ ] API 단위/서비스 테스트 추가
-- [ ] `backend/SPEC.md`, `backend/README.md`, `backend/PLAN.md` 갱신
+- [x] `backend/src/main/java/com/funchat/demo/video` 패키지 추가
+- [x] `VideoSession` 엔티티와 repository 추가
+- [x] `VideoSessionService`에서 Room 참여자/매니저 권한 검증 연결
+- [x] 세션 시작/조회 API와 참가 토큰 발급 API 추가
+- [ ] 세션 종료 API 추가
+- [x] 공통 예외 코드 추가
+- [x] API 단위/서비스 테스트 추가
+- [x] `backend/SPEC.md`, `backend/README.md`, `backend/PLAN.md` 갱신
 
 ### Phase 2: LiveKit 연동
 
-- [ ] LiveKit Java server SDK 또는 REST/token 발급 방식 결정
-- [ ] `LiveKitProperties` 구성 추가: API key, secret, endpoint, token TTL
-- [ ] LiveKit room name 생성 정책 구현
-- [ ] 방 참여자에게만 LiveKit access token 발급
+- [x] LiveKit Java server SDK 또는 REST/token 발급 방식 결정: 기존 `jjwt`로 참가 토큰 생성
+- [x] `LiveKitProperties` 구성 추가: API key, secret, endpoint, token TTL
+- [x] LiveKit room name 생성 정책 구현
+- [x] 방 참여자에게만 LiveKit access token 발급
 - [ ] 세션 종료 시 LiveKit room 정리 연동
 - [ ] SDK/API 실패 시 에러 처리와 재시도 범위 정의
-- [ ] token claim 검증 가능한 테스트 추가
+- [x] token claim 검증 가능한 테스트 추가
 
 ### Phase 3: 로컬 인프라
 

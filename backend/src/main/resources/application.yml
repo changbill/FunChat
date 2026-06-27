@@ -22,18 +22,24 @@ spring:
     database: funchat
     username: ${USER_ID}
     password: ${USER_PW}
-    authentication-database: admin  # 사용자 인증은 admin DB에 저장된 계정 기준으로 수행
+    authentication-database: admin # 사용자 인증은 admin DB에 저장된 계정 기준으로 수행
 
 jwt:
   secret: ${JWT_SECRET}
   access-expiration: ${ACCESS_EXPIRATION}
   refresh-expiration: ${REFRESH_EXPIRATION}
 
+livekit:
+  api-key: ${LIVEKIT_API_KEY}
+  api-secret: ${LIVEKIT_API_SECRET}
+  url: ${LIVEKIT_URL}
+  token-ttl-seconds: ${LIVEKIT_TOKEN_TTL_SECONDS}
+
 management:
   endpoints:
     web:
       exposure:
-        include: "health,info,prometheus" # prometheus 엔드포인트 개방
+        include: 'health,info,prometheus' # prometheus 엔드포인트 개방
   endpoint:
     health:
       show-details: always # 상세 건강 상태 확인

@@ -13,6 +13,7 @@ FunChat 백엔드는 다음 책임을 가집니다.
 - 채팅방 입장/퇴장 및 매니저 위임
 - 채팅 메시지 실시간 전송
 - 채팅 메시지 영속 저장 및 이력 조회
+- 방 단위 영상 세션 생성/조회와 LiveKit 참가 토큰 발급
 - 운영 헬스 체크와 Prometheus 메트릭 노출
 
 ## 공통 HTTP 계약
@@ -59,9 +60,11 @@ Controller는 `ResponseUtil.createSuccessResponse(body)`를 사용합니다. 실
 | 403 | 해당 채팅방의 참여자가 아닙니다. | STOMP 구독/전송 또는 매니저 위임 대상 검증 실패 |
 | 404 | 요청한 채팅방을 찾을 수 없습니다. | 존재하지 않는 roomId 조회 또는 입장 |
 | 404 | 요청한 사용자를 찾을 수 없습니다. | 존재하지 않는 userId 사용 |
+| 404 | 활성 영상 세션을 찾을 수 없습니다. | 활성 영상 세션 조회 시 세션 없음 |
 | 409 | 채팅방 인원이 가득 찼습니다. | 정원 초과 입장 |
 | 409 | 이미 참여 중인 채팅방입니다. | 같은 방 또는 다른 방 중복 입장 |
 | 500 | 메시지 전송에 실패했습니다. | Redis Streams 저장 경로 발행 실패 |
+| 500 | 영상 서버 설정이 올바르지 않습니다. | LiveKit API key/secret/url 설정 누락 |
 
 ### Controller 작성 패턴
 
@@ -285,6 +288,71 @@ Response body: `null`
 
 Response body: `null`
 
+## Video API
+
+영상 API는 기존 채팅방 참여자만 사용할 수 있습니다. FunChat 백엔드는 영상 세션 상태와 권한을 관리하고, 실제 WebRTC signaling/media 처리는 LiveKit이 담당합니다.
+
+### 영상 세션 시작
+
+`POST /api/rooms/{roomId}/video/sessions`
+
+정책:
+
+- 인증 사용자가 해당 방 참여자여야 합니다.
+- 이미 ACTIVE 상태의 세션이 있으면 새로 만들지 않고 기존 세션을 반환합니다.
+- LiveKit room 이름은 `funchat-room-{roomId}` 형식을 사용합니다.
+
+Response body:
+
+```json
+{
+  "sessionId": 1,
+  "roomId": 10,
+  "livekitRoomName": "funchat-room-10",
+  "status": "ACTIVE",
+  "startedAt": "2026-05-12T12:00:00",
+  "endedAt": null
+}
+```
+
+### 활성 영상 세션 조회
+
+`GET /api/rooms/{roomId}/video/session`
+
+정책:
+
+- 인증 사용자가 해당 방 참여자여야 합니다.
+- ACTIVE 상태의 세션이 없으면 `VIDEO_SESSION_NOT_FOUND` 에러를 반환합니다.
+
+Response body: `VideoSessionResponse`
+
+### LiveKit 참가 토큰 발급
+
+`POST /api/rooms/{roomId}/video/token`
+
+정책:
+
+- 인증 사용자가 해당 방 참여자여야 합니다.
+- ACTIVE 세션이 없으면 세션을 생성한 뒤 토큰을 발급합니다.
+- 토큰 identity는 `user-{userId}` 형식을 사용합니다.
+- 토큰은 LiveKit JWT이며 `video.roomJoin=true`, `canPublish=true`, `canPublishData=true`, `canSubscribe=true` grant를 포함합니다.
+- 토큰 만료 시간은 `LIVEKIT_TOKEN_TTL_SECONDS`를 따르며 기본값은 3600초입니다.
+
+Response body:
+
+```json
+{
+  "sessionId": 1,
+  "roomId": 10,
+  "livekitUrl": "http://localhost:7880",
+  "livekitRoomName": "funchat-room-10",
+  "identity": "user-1",
+  "participantName": "nickname",
+  "token": "...",
+  "expiresAt": "2026-05-12T13:00:00"
+}
+```
+
 ## Chat History API
 
 ### 채팅 이력 조회
@@ -382,6 +450,7 @@ Payload:
 
 - `User`: 계정 정보와 현재 입장한 방 관계를 저장합니다.
 - `Room`: 방 제목, 최대 인원, 매니저, 참여자 관계를 저장합니다.
+- `VideoSession`: 방별 LiveKit room 이름, 세션 상태(`ACTIVE`, `ENDED`), 시작/종료 시각을 저장합니다.
 - 엔티티는 `room/domain`, `user/domain` 등에 위치합니다.
 - `User`에서 `Room`은 `@ManyToOne` 관계로 관리합니다.
 - `Room`에서 참여자는 `@OneToMany(mappedBy = "room")` 관계로 관리합니다.
@@ -429,6 +498,14 @@ Payload:
 - 개인정보 처리는 기본 비공개 정책을 선행합니다.
 - 공유 토큰/링크 기능을 추가할 경우 만료와 1회성 제약을 우선 검토합니다.
 - Soft-delete 적용 시 마이그레이션과 조회 정책을 문서화합니다.
+
+## 외부 연동
+
+### LiveKit
+
+- 클라이언트는 FunChat JWT로 백엔드 `POST /api/rooms/{roomId}/video/token`을 호출해 LiveKit 참가 토큰을 받습니다.
+- 클라이언트는 응답의 `livekitUrl`, `livekitRoomName`, `token`으로 LiveKit SDK에 접속하고 카메라/마이크/화면 트랙을 publish합니다.
+- 백엔드는 LiveKit Admin API 또는 webhook 처리를 아직 수행하지 않습니다. 세션 종료 동기화와 참가자 이벤트 반영은 후속 작업입니다.
 
 ## 비기능 요구사항
 

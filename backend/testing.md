@@ -46,6 +46,7 @@ cd backend
 - **WebSocket/브로커 테스트**는 레이어가 복잡하므로:
   - 프로토콜/인증/권한(StompHandler) 규칙이 바뀌지 않게 회귀 테스트를 유지
   - Mongo 저장 경로/팬아웃 경로는 각각 단위/통합을 분리해 검증
+- **Video 테스트**는 Room 참여 권한, 활성 세션 재사용, LiveKit JWT grant를 함께 검증한다.
 
 예시:
 
@@ -69,3 +70,8 @@ class SaveMessage {
 - **Service 레이어**: `@SpringBootTest` + `@Transactional` 사용 (Mock 사용 금지)
 - **Controller 레이어**: `@WebMvcTest` 사용
 - **Repository 레이어**: `@DataJpaTest` 사용, JPA를 사용하지 않을 경우 `TestContainer`와 `@DynamicPropertySource` 사용
+
+## 현재 영상 API 테스트
+
+- `VideoControllerTest`: 세션 시작/조회/토큰 발급 엔드포인트가 인증 사용자 ID로 서비스를 호출하고 공통 응답 형식을 유지하는지 검증합니다.
+- `VideoServiceTest`: 방 참여자 권한, 활성 세션 재사용, 세션 없음 에러, LiveKit JWT의 issuer/subject/video grant를 검증합니다.

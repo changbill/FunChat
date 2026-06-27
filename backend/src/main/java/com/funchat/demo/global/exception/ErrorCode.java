@@ -55,6 +55,10 @@ public enum ErrorCode {
     MESSAGE_CONTENT_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지 길이가 제한을 초과했습니다."),
 //    MESSAGE_NOT_SENDER(HttpStatus.FORBIDDEN, "자신이 보낸 메시지만 삭제/수정할 수 있습니다."),
 
+    // 영상
+    VIDEO_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 영상 세션을 찾을 수 없습니다."),
+    VIDEO_CONFIG_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "영상 서버 설정이 올바르지 않습니다."),
+
     // 요청 제한
 //    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.")
     ;
