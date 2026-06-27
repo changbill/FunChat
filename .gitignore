@@ -9,6 +9,7 @@
 **/node_modules/
 **/.vite/
 **/.cache/
+**/dist/
 
 # Local databases / volumes
 backend/mongo_data/
