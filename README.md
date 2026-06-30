@@ -22,7 +22,7 @@
 ```
 funchat/
 ├── backend/                 # Spring Boot 백엔드 API·WebSocket 서버
-├── frontend/funchat/        # 사용자 웹 (React + Vite)
+├── frontend/                # 사용자 웹 (React + Vite)
 ├── monitoring/              # Prometheus 설정·부하 테스트 스크립트 (k6 등)
 ├── deploy/                  # 배포용 compose/nginx(rolling slots, router, infra)
 └── Jenkinsfile              # Docker 빌드·배포 파이프라인
@@ -72,7 +72,7 @@ com.funchat.demo/
 
 ## 2. Frontend (User Web)
 
-**경로**: [`frontend/funchat/`](./frontend/funchat/)
+**경로**: [`frontend/`](./frontend/)
 
 ### 스택
 
@@ -87,7 +87,7 @@ com.funchat.demo/
 | **채팅방 목록** (`/`)        | 방 목록, 인증된 사용자만 접근 (`PrivateRoute`) |
 | **채팅방** (`/room/:roomId`) | 실시간 메시지 송수신, 채팅 UI                  |
 
-프로덕션에서는 Nginx로 정적 파일을 서빙하도록 [Dockerfile](./frontend/funchat/Dockerfile)·[`nginx.conf`](./frontend/funchat/nginx.conf) 구성을 사용한다.
+프로덕션에서는 Nginx로 정적 파일을 서빙하도록 [Dockerfile](./frontend/Dockerfile)·[`nginx.conf`](./frontend/nginx.conf) 구성을 사용한다.
 
 ---
 
@@ -147,7 +147,7 @@ docker compose -f docker-compose.livekit.yml up -d
 
 ## 로컬 실행 요약
 
-1. `backend`에서 Spring Boot를, `frontend/funchat`에서 `npm run dev`로 각각 기동한다.
+1. `backend`에서 Spring Boot를, `frontend`에서 `npm run dev`로 각각 기동한다.
 2. 백엔드가 기대하는 MySQL·MongoDB·Redis는 로컬 또는 컨테이너로 띄운다.
 
 ### 로컬(도커 컴포즈)로 한 번에 실행

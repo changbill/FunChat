@@ -46,7 +46,7 @@ pipeline {
         
         stage('4. Frontend Docker Build') {
             steps {
-                dir('frontend/funchat') {
+                dir('frontend') {
                     script {
                         sh "docker build -t ${FRONTEND_IMAGE}:latest ."
                     }

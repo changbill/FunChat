@@ -75,7 +75,7 @@ services:
 
   web:
     build:
-      context: ../frontend/funchat
+      context: ../frontend
     container_name: funchat-local-web
     restart: unless-stopped
     depends_on:
