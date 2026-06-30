@@ -233,3 +233,25 @@ void 방장이_퇴장하면_다음_참여자에게_매니저가_위임된다() {
 ./gradlew test
 ./gradlew build
 ```
+
+---
+
+## 12. 참조 문서
+
+문서 트리와 위임 규칙은 최상위 [`AGENTS.md`](../AGENTS.md) §3을 따른다.
+
+백엔드 작업 시 참조·갱신 대상:
+
+| 문서 | 경로 | 갱신 기준 |
+| --- | --- | --- |
+| README | `backend/README.md` | 실행 방법, 주요 API, 환경변수, 패키지 구조 변경 |
+| RESEARCH | `backend/RESEARCH.md` | 기술 선택, 라이브러리 비교, API 제약 조사 추가 |
+| PLAN | `backend/PLAN.md` | 백엔드 todo, 우선순위, 검증 계획 변경 |
+| SPEC | `backend/SPEC.md` | API 계약, DTO, 인증·저장소·에러 처리 명세 변경 |
+| 테스트 | `backend/testing.md` | 테스트 전략, Testcontainers, 실행 방법 변경 |
+
+갱신 순서:
+
+1. 변경 내용을 `backend/` 문서에 기록한다.
+2. 여러 영역에 영향이 있으면 최상위 `README.md`, `PLAN.md`, `SPEC.md`에 요약과 링크를 반영한다.
+3. 영역 `PLAN.md`의 Phase가 완료되면 `.codex/markdown/backend/phase-{번호}/implementation.md`, `verification.md`를 작성한다.
