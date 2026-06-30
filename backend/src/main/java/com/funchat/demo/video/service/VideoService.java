@@ -82,6 +82,20 @@ public class VideoService {
                 .build();
     }
 
+    @Transactional
+    public VideoSessionResponse endSession(Long roomId, Long sessionId, Long userId) {
+        Room room = findRoom(roomId);
+        validateManager(room, userId);
+
+        VideoSession session = findActiveSession(roomId)
+                .filter(activeSession -> activeSession.getId().equals(sessionId))
+                .orElseThrow(() -> new BusinessException(ErrorCode.VIDEO_SESSION_NOT_FOUND));
+
+        session.end();
+
+        return VideoSessionResponse.from(session);
+    }
+
     private Room findRoom(Long roomId) {
         return roomRepository.findById(roomId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
@@ -96,6 +110,16 @@ public class VideoService {
         }
 
         return user;
+    }
+
+    private void validateManager(Room room, Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        if (!room.getManager().getId().equals(userId)) {
+            throw new BusinessException(ErrorCode.ROOM_NOT_MANAGER);
+        }
     }
 
     private java.util.Optional<VideoSession> findActiveSession(Long roomId) {

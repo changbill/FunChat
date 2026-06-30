@@ -94,6 +94,21 @@ class VideoControllerTest {
         verify(videoService).issueJoinToken(10L, 1L);
     }
 
+    @Test
+    @DisplayName("영상 세션 종료는 인증 사용자 ID로 서비스를 호출하고 종료된 세션 응답을 반환한다")
+    void endSession_UsesAuthenticatedUser() throws Exception {
+        when(videoService.endSession(10L, 100L, 1L)).thenReturn(endedVideoSessionResponse());
+
+        mockMvc.perform(post("/api/rooms/{roomId}/video/sessions/{sessionId}/end", 10L, 100L)
+                        .with(authentication(authenticatedUser())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.body.sessionId").value(100))
+                .andExpect(jsonPath("$.body.status").value("ENDED"))
+                .andExpect(jsonPath("$.body.endedAt").isNotEmpty());
+
+        verify(videoService).endSession(10L, 100L, 1L);
+    }
+
     private UsernamePasswordAuthenticationToken authenticatedUser() {
         CustomUserDetails userDetails = new CustomUserDetails(User.createForTest(1L, "user@test.com", "tester", ""));
         UsernamePasswordAuthenticationToken authentication =
@@ -110,6 +125,17 @@ class VideoControllerTest {
                 VideoSessionStatus.ACTIVE,
                 LocalDateTime.of(2026, 5, 12, 12, 0),
                 null
+        );
+    }
+
+    private VideoSessionResponse endedVideoSessionResponse() {
+        return new VideoSessionResponse(
+                100L,
+                10L,
+                "funchat-room-10",
+                VideoSessionStatus.ENDED,
+                LocalDateTime.of(2026, 5, 12, 12, 0),
+                LocalDateTime.of(2026, 5, 12, 12, 30)
         );
     }
 

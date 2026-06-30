@@ -10,6 +10,7 @@ import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.UserRepository;
 import com.funchat.demo.video.domain.VideoSession;
 import com.funchat.demo.video.domain.VideoSessionRepository;
+import com.funchat.demo.video.domain.VideoSessionStatus;
 import com.funchat.demo.video.domain.dto.VideoSessionResponse;
 import com.funchat.demo.video.domain.dto.VideoTokenResponse;
 import io.jsonwebtoken.Claims;
@@ -112,6 +113,48 @@ class VideoServiceTest {
                 .containsEntry("canPublishData", true)
                 .containsEntry("canSubscribe", true);
         assertThat(response.expiresAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("방 매니저는 활성 영상 세션을 종료할 수 있다")
+    void endSession_WhenManager_EndsActiveSession() {
+        TestRoom testRoom = saveRoom("영상방", 5);
+        VideoSessionResponse started = videoService.startSession(testRoom.room().getId(), testRoom.manager().getId());
+
+        VideoSessionResponse ended = videoService.endSession(
+                testRoom.room().getId(),
+                started.sessionId(),
+                testRoom.manager().getId()
+        );
+
+        VideoSession session = videoSessionRepository.findById(started.sessionId()).orElseThrow();
+        assertThat(ended.status()).isEqualTo(VideoSessionStatus.ENDED);
+        assertThat(ended.endedAt()).isNotNull();
+        assertThat(session.getStatus()).isEqualTo(VideoSessionStatus.ENDED);
+        assertThat(session.getEndedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("방 매니저가 아니면 영상 세션을 종료할 수 없다")
+    void endSession_WhenUserIsNotManager_ThrowsException() {
+        TestRoom testRoom = saveRoom("영상방", 5);
+        User participant = saveUser("participant@test.com", "participant");
+        testRoom.room().acceptParticipant(participant, testRoom.room().getParticipants().size());
+        VideoSessionResponse started = videoService.startSession(testRoom.room().getId(), testRoom.manager().getId());
+
+        assertThatThrownBy(() -> videoService.endSession(testRoom.room().getId(), started.sessionId(), participant.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ROOM_NOT_MANAGER);
+    }
+
+    @Test
+    @DisplayName("활성 세션이 없으면 영상 세션 종료에 실패한다")
+    void endSession_WhenActiveSessionIsMissing_ThrowsException() {
+        TestRoom testRoom = saveRoom("영상방", 5);
+
+        assertThatThrownBy(() -> videoService.endSession(testRoom.room().getId(), 999L, testRoom.manager().getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VIDEO_SESSION_NOT_FOUND);
     }
 
     private Claims parseClaims(String token) {

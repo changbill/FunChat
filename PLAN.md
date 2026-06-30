@@ -120,7 +120,7 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 - [x] `VideoSession` 엔티티와 repository 추가
 - [x] `VideoSessionService`에서 Room 참여자/매니저 권한 검증 연결
 - [x] 세션 시작/조회 API와 참가 토큰 발급 API 추가
-- [ ] 세션 종료 API 추가
+- [x] 세션 종료 API 추가
 - [x] 공통 예외 코드 추가
 - [x] API 단위/서비스 테스트 추가
 - [x] `backend/SPEC.md`, `backend/README.md`, `backend/PLAN.md` 갱신

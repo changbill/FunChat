@@ -24,7 +24,7 @@ Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STO
 - STOMP 기반 실시간 메시지 송수신
 - Redis Streams/PubSub 기반 메시지 저장 경로와 팬아웃 경로 분리
 - MongoDB 기반 채팅 메시지 이력 조회
-- 방 참여자용 LiveKit 영상 세션 생성/조회 및 참가 토큰 발급
+- 방 참여자용 LiveKit 영상 세션 생성/조회/종료 및 참가 토큰 발급
 - Actuator/Prometheus 메트릭 노출
 
 ## 아키텍처
@@ -90,6 +90,7 @@ WebSocket은 클라이언트가 `/ws`로 SockJS 연결한 뒤 STOMP native heade
 | POST | `/api/rooms/{roomId}/video/sessions` | 필요 | 방 영상 세션 시작 또는 활성 세션 반환 |
 | GET | `/api/rooms/{roomId}/video/session` | 필요 | 방 활성 영상 세션 조회 |
 | POST | `/api/rooms/{roomId}/video/token` | 필요 | LiveKit publish/subscribe 참가 토큰 발급 |
+| POST | `/api/rooms/{roomId}/video/sessions/{sessionId}/end` | 필요 | 방 매니저가 영상 세션 종료 |
 | GET | `/api/chat/messages/{roomId}` | 필요 | 커서 기반 채팅 이력 조회 |
 | GET | `/actuator/health` | 불필요 | 헬스 체크 |
 | GET | `/actuator/prometheus` | 불필요 | Prometheus 메트릭 |

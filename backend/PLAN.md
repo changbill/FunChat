@@ -24,7 +24,7 @@
 | 테스트 기반 | 완료 | JUnit, Testcontainers, H2 설정과 주요 서비스 테스트 존재 |
 | 운영 메트릭 | 완료 | Actuator, Prometheus registry 구성 |
 | 백엔드 문서 | 완료 | README/SPEC/PLAN/testing/AGENTS 중심으로 통합 |
-| 영상 세션 API | 완료 | LiveKit 참가 토큰 발급을 위한 세션 생성/조회/토큰 API 구현 |
+| 영상 세션 API | 완료 | LiveKit 참가 토큰 발급을 위한 세션 생성/조회/종료/토큰 API 구현 |
 
 ## 다음 작업
 

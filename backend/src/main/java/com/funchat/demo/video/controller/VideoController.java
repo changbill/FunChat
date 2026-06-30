@@ -46,4 +46,14 @@ public class VideoController {
         Long userId = userDetails.user().getId();
         return ResponseUtil.createSuccessResponse(videoService.issueJoinToken(roomId, userId));
     }
+
+    @PostMapping("/sessions/{sessionId}/end")
+    public ResponseEntity<ResponseDto> endSession(
+            @PathVariable Long roomId,
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        Long userId = userDetails.user().getId();
+        return ResponseUtil.createSuccessResponse(videoService.endSession(roomId, sessionId, userId));
+    }
 }

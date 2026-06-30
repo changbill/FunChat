@@ -13,7 +13,7 @@ FunChat 백엔드는 다음 책임을 가집니다.
 - 채팅방 입장/퇴장 및 매니저 위임
 - 채팅 메시지 실시간 전송
 - 채팅 메시지 영속 저장 및 이력 조회
-- 방 단위 영상 세션 생성/조회와 LiveKit 참가 토큰 발급
+- 방 단위 영상 세션 생성/조회/종료와 LiveKit 참가 토큰 발급
 - 운영 헬스 체크와 Prometheus 메트릭 노출
 
 ## 공통 HTTP 계약
@@ -60,7 +60,7 @@ Controller는 `ResponseUtil.createSuccessResponse(body)`를 사용합니다. 실
 | 403 | 해당 채팅방의 참여자가 아닙니다. | STOMP 구독/전송 또는 매니저 위임 대상 검증 실패 |
 | 404 | 요청한 채팅방을 찾을 수 없습니다. | 존재하지 않는 roomId 조회 또는 입장 |
 | 404 | 요청한 사용자를 찾을 수 없습니다. | 존재하지 않는 userId 사용 |
-| 404 | 활성 영상 세션을 찾을 수 없습니다. | 활성 영상 세션 조회 시 세션 없음 |
+| 404 | 활성 영상 세션을 찾을 수 없습니다. | 활성 영상 세션 조회/종료 시 세션 없음 |
 | 409 | 채팅방 인원이 가득 찼습니다. | 정원 초과 입장 |
 | 409 | 이미 참여 중인 채팅방입니다. | 같은 방 또는 다른 방 중복 입장 |
 | 500 | 메시지 전송에 실패했습니다. | Redis Streams 저장 경로 발행 실패 |
@@ -352,6 +352,19 @@ Response body:
   "expiresAt": "2026-05-12T13:00:00"
 }
 ```
+
+### 영상 세션 종료
+
+`POST /api/rooms/{roomId}/video/sessions/{sessionId}/end`
+
+정책:
+
+- 인증 사용자가 해당 방 매니저여야 합니다.
+- 지정한 `sessionId`가 해당 방의 ACTIVE 세션이어야 합니다.
+- 성공 시 세션 상태를 `ENDED`로 변경하고 `endedAt`을 기록합니다.
+- 이번 범위에서는 FunChat DB 세션 상태만 변경합니다. 실제 LiveKit room 정리는 LiveKit Admin API 연동 단계에서 처리합니다.
+
+Response body: `VideoSessionResponse`
 
 ## Chat History API
 
