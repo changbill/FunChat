@@ -30,6 +30,20 @@ funchat/
 
 ---
 
+## 에이전트 사용법
+
+| 단계 | 요청 예시 |
+| --- | --- |
+| 조사 | `LiveKit webhook 서명 검증 방식 조사해서 .codex/markdown/backend/phase-2/research.md에 정리해줘` |
+| 계획 | `backend/PLAN.md에 P1 LiveKit webhook todo와 검증 계획 반영해줘` |
+| 구현 | `backend/PLAN.md P1 구현해줘` |
+| 커밋 | `지금 변경사항 커밋해줘` |
+| PR | `backend Phase 1 완료됐으니 PR 만들어줘` |
+
+상세 운영 규칙은 [`AGENTS.md`](./AGENTS.md)를 따른다.
+
+---
+
 ## 1. Backend
 
 **경로**: [`backend/`](./backend/)

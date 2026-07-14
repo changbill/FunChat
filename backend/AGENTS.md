@@ -1,257 +1,73 @@
-# Backend AGENTS.md
-
-## 1. 백엔드 프로젝트 요약
-
-Funchat 백엔드는 API, 인증, 채팅방, 실시간 메시징, 메시지 영속화, 영상 세션 관리를 담당한다.
-
-- 언어: Java 21
-- 프레임워크: Spring Boot
-- 빌드 도구: Gradle
-- 기본 패키지 루트: `com.funchat.demo`
-
-주요 기술:
-
-- Spring MVC
-- Spring Security
-- JWT
-- WebSocket
-- STOMP
-- SockJS
-- Redis
-- MongoDB
-- JPA
-- MySQL
-- LiveKit (SFU, WebRTC signaling/media)
-
----
-
-## 2. 패키지 구조
-
-백엔드 코드는 다음 패키지 구분을 따른다.
-
-```text
-com.funchat.demo
-├── auth
-├── user
-├── room
-├── chat
-├── video
-├── global
-└── util
-```
-
-| 패키지   | 역할                                                                                   |
-| -------- | -------------------------------------------------------------------------------------- |
-| `auth`   | JWT, `UserDetails`, 인증 필터, 인증/인가 처리                                          |
-| `user`   | 회원가입, 로그인, 토큰 재발급, 로그아웃 API                                            |
-| `room`   | 채팅방 생성, 조회, 입장, 퇴장, 매니저 위임                                             |
-| `chat`   | WebSocket STOMP 인바운드 처리, Redis 브로커, MongoDB 메시지 저장, HTTP 메시지 조회 API |
-| `video`  | 방 단위 영상 세션 생성/조회, LiveKit 참가 토큰 발급, 세션 상태 관리                    |
-| `global` | 공통 설정, 필터, 예외, 상수, AOP                                                       |
-| `util`   | 공통 응답 포맷, 파싱, 공통 유틸                                                        |
-
-구조 규칙:
-
-- 특정 도메인에만 필요한 코드는 해당 도메인 패키지에 둔다.
-- 여러 도메인에서 재사용되는 코드만 `global` 또는 `util`로 분리한다.
-- 공통화가 필요하면 근거를 정리한 뒤 `global` 또는 `util`로 분리한다.
-- 새 패키지를 만들기 전 기존 패키지 역할과 중복되는지 확인한다.
-- 기존 패키지 구조와 `Controller → Service → Domain` 흐름을 유지한 채 변경 범위를 최소화한다.
-
----
-
-## 3. 계층 구조
-
-백엔드는 다음 흐름을 유지한다.
-
-```text
-Controller → Service → Domain(Entity/Repository)
-```
-
-### Controller
-
-- HTTP 요청과 응답을 처리한다.
-- 요청 값, PathVariable, RequestBody, 인증 사용자 정보를 Service에 전달한다.
-- 비즈니스 로직, 토큰 파싱, 권한 판단, DB 조회는 Service에 위임한다.
-- 응답은 `ResponseUtil`을 사용해 `ResponseDto(code, message, body)` 형식으로 반환한다.
-
-### Service
-
-- 비즈니스 흐름을 담당한다.
-- 트랜잭션 경계를 관리한다.
-- Entity 조회, 검증, 상태 변경을 처리한다.
-- Controller 전용 로직을 포함하지 않는다.
-- 여러 저장소를 함께 사용하는 경우 정합성 기준을 명확히 한다.
-
-### Repository
-
-- 데이터 접근을 담당한다.
-- 비즈니스 판단 로직을 포함하지 않는다.
-- 단순 조회는 Spring Data JPA 메서드명을 우선한다.
-- 복잡한 조회는 기존 프로젝트 방식에 맞춰 `@Query` 등을 사용한다.
-- 조회 조건, 정렬, 페이징이 있는 경우 테스트에서 검증한다.
-
-### Entity
-
-- DB 테이블과 매핑되는 상태를 가진다.
-- 상태 변경은 의미 있는 메서드로 표현한다.
-- 무분별한 Setter 추가를 피한다.
-- 연관관계 변경 시 기존 매핑과 영속성 흐름을 확인한다.
-- API 응답은 DTO로 변환해 반환한다.
-
----
-
-## 4. 응답 포맷
-
-컨트롤러는 기존 응답 포맷을 유지한다.
-
-```java
-ResponseDto(code, message, body)
-```
-
-반환 시 `ResponseUtil`을 사용한다.
-
-규칙:
-
-- 새 API도 `ResponseUtil`과 `ResponseDto(code, message, body)` 형식을 따른다.
-- Entity는 DTO로 변환한 뒤 응답 body에 담는다.
-- 에러 응답은 `global.exception` 흐름을 따른다.
-- 클라이언트 응답에는 내부 예외 메시지, 스택트레이스, SQL 정보를 포함하지 않는다.
-
----
-
-## 5. 인증 규칙
-
-### HTTP 인증
-
-HTTP 요청은 다음 형식을 사용한다.
-
-```http
-Authorization: Bearer <access-token>
-```
-
-규칙:
-
-- HTTP 토큰 검증은 필터에서 처리한다.
-- Controller는 `@AuthenticationPrincipal` 등 기존 방식으로 인증 사용자 정보를 받아 Service에 전달한다.
-- 인증 실패와 권한 없음은 각각 구분해 응답한다.
-
-### WebSocket 인증
-
-WebSocket STOMP 요청은 native header `Authorization`으로 토큰을 전달한다.
-
-규칙:
-
-- WebSocket 토큰 검증은 인바운드 채널 인터셉터에서 처리한다.
-- HTTP 인증 흐름과 WebSocket 인증 흐름을 각각 유지한다.
-
----
-
-## 6. 저장소 사용 규칙
-
-| 용도                                  | 저장소     |
-| ------------------------------------- | ---------- |
-| User, Room 등 코어 데이터             | JPA, MySQL |
-| 채팅 메시지 영속                      | MongoDB    |
-| 실시간 처리, 팬아웃, 블랙리스트, 캐시 | Redis      |
-| WebRTC signaling/media                | LiveKit    |
-
-규칙:
-
-- User, Room 등 관계형 데이터는 JPA와 MySQL 흐름을 유지한다.
-- 채팅 메시지는 MongoDB 저장 흐름을 유지한다.
-- Redis는 실시간 처리, 팬아웃, 블랙리스트, 캐시에 사용한다.
-- 영상 미디어 전송과 signaling은 LiveKit이 담당한다. 백엔드는 세션 상태와 참가 토큰만 관리한다.
-- FunChat JWT는 API 인증에, LiveKit JWT는 영상 참가에 사용한다.
-- 저장소 변경이 필요하면 변경 근거를 먼저 정리한다.
-
----
-
-## 7. 채팅 처리 규칙
-
-- WebSocket 인바운드 처리는 `chat` 패키지의 기존 흐름을 따른다.
-- STOMP 메시지 처리, Redis 브로커, MongoDB 저장 책임을 분리한다.
-- 실시간 팬아웃은 Redis, 메시지 영속은 MongoDB가 담당한다.
-- Redis Pub/Sub은 fanout, Redis Streams는 저장 경로로 각각 사용한다.
-- Redis Pub/Sub 또는 Redis Streams 사용처를 변경할 때는 메시지 유실, 중복 처리, 재처리 가능성을 검토한다.
-- 메시지 저장 실패, Redis 처리 실패, WebSocket 전송 실패 시나리오를 고려한다.
-
----
-
-## 8. 트랜잭션 규칙
-
-- 트랜잭션은 Service 계층에서 관리한다.
-- 조회 메서드는 가능하면 `@Transactional(readOnly = true)`를 사용한다.
-- 생성, 수정, 삭제 메서드는 `@Transactional`을 사용한다.
-- Controller와 Repository에는 트랜잭션을 두지 않는다.
-- DB 변경과 외부 시스템 호출이 함께 있으면 실패 시나리오를 고려한다.
-- Redis, MongoDB, MySQL을 함께 다루는 작업은 정합성 기준을 명확히 한다.
-
----
-
-## 9. 예외 처리 규칙
-
-- 예외 처리는 기존 `global.exception` 흐름을 따른다.
-- Controller에서 try-catch로 응답을 직접 만들지 않는다.
-- 도메인별 예외는 의미가 드러나게 정의한다.
-- 에러 응답 포맷은 기존 공통 응답 규칙을 유지한다.
-- 인증 실패, 권한 없음, 리소스 없음, 검증 실패를 구분한다.
-- 내부 구현 세부사항을 클라이언트 응답에 노출하지 않는다.
-
----
-
-## 10. 테스트 컨벤션
-
-기능 구현 또는 수정 시 테스트를 작성한다.
-
-테스트 기준:
-
-- 핵심 비즈니스 로직을 변경할 때는 테스트를 함께 추가하거나 갱신하고 `./gradlew test`로 통과를 확인한다.
-- Service 테스트는 비즈니스 규칙을 검증한다.
-- Controller 테스트는 요청, 응답, 인증, 검증 실패를 확인한다.
-- Repository 테스트는 쿼리 조건, 정렬, 페이징을 확인한다.
-- Redis, MongoDB, MySQL 연동이 필요한 경우 `testing.md`의 Testcontainers 전략을 따른다.
-- 외부 연동은 테스트 대역을 우선 사용한다.
-
-테스트명은 검증하려는 동작이 드러나게 작성한다.
-
-예시:
-
-```java
-@Test
-void 방장이_퇴장하면_다음_참여자에게_매니저가_위임된다() {
-}
-```
-
----
-
-## 11. 백엔드 검증 명령
-
-백엔드 작업 완료 후 가능한 검증을 수행한다.
+# Backend AGENTS
+
+프로젝트/패키지/아키텍처 설명은 `backend/README.md`와 `docs/DOCUMENTATION.md`를 참고한다.
+
+## 1. 작업 시작 규칙
+
+- 작업 시작 전 `backend/README.md`, `backend/RESEARCH.md`, `backend/PLAN.md`, `backend/SPEC.md`를 확인한다.
+- 공통 규칙은 최상위 `AGENTS.md`를 따른다.
+
+## 2. 코드 변경 규칙(백엔드)
+
+- 계층은 `Controller → Service → Domain(Entity/Repository)` 흐름을 유지한다.
+- Controller는 요청/응답만 담당하고 비즈니스 로직은 Service에 둔다.
+- 트랜잭션은 Service 계층에서 관리한다. 조회는 `readOnly`를 우선한다.
+- 응답은 `ResponseUtil`로 `ResponseDto(code, message, body)` 포맷을 유지한다.
+- HTTP 인증 헤더는 `Authorization: Bearer <access-token>`을 유지한다.
+- STOMP 인증은 native header `Authorization` 흐름을 유지한다.
+- `@RestController`와 `@RequestMapping("/api/...")`를 사용한다.
+- 입력 DTO는 `@RequestBody`로 받고, 필요한 경우 `@Valid`를 적용한다.
+- 인증 사용자 정보는 `@AuthenticationPrincipal`로 받는다.
+- Controller에서 컬렉션 필터링, 정렬, 권한 판단 같은 비즈니스 로직을 구현하지 않는다.
+- 예외는 도메인 예외와 `GlobalExceptionHandler`로 분리한다.
+- 민감 파라미터는 로그에서 제외한다.
+
+### 기본 스타일
+
+- 인코딩은 UTF-8, 줄바꿈은 LF, 들여쓰기는 4 spaces를 사용한다.
+- 파일명은 PascalCase + 용도(`UserController`, `RoomService`)로 작성한다.
+- 와일드카드 import와 FQCN 직접 사용을 피한다.
+- 가능한 곳에는 `final`을 사용한다.
+- DTO는 record를 우선 사용하고 Request/Response를 분리한다.
+- 반복 문자열과 매직 넘버는 상수로 추출하되, 에러 메시지는 상수화하지 않는다.
+
+### Lombok 및 네이밍
+
+- 엔티티는 `@Getter`와 `@NoArgsConstructor(access = AccessLevel.PROTECTED)`를 기본으로 한다.
+- 서비스/리포지토리/컴포넌트는 `@RequiredArgsConstructor`로 생성자 주입을 통일한다.
+- 클래스/인터페이스는 `PascalCase`, 메서드/변수는 `camelCase`, 상수는 `UPPER_SNAKE_CASE`를 사용한다.
+- DTO 이름은 `...Request`, `...Response`로 끝낸다.
+- 조회 메서드는 `find`/`get`, 쓰기 메서드는 `create`/`update`/`delete`를 사용한다.
+- Boolean 판별 메서드는 `is`/`has`/`can` 접두어를 사용한다.
+
+## 3. 저장소/외부 연동 규칙(백엔드)
+
+- User/Room 등 코어 데이터는 JPA+MySQL 흐름을 유지한다.
+- 채팅 메시지 영속은 MongoDB 흐름을 유지한다.
+- 실시간/팬아웃/캐시/블랙리스트는 Redis 역할을 유지한다.
+- 미디어 전송(signaling/media)은 LiveKit이 담당하고, 백엔드는 세션 상태/토큰 발급을 담당한다.
+- 저장소/연동 방식 변경이 필요하면 근거를 Phase `research.md`에 먼저 기록한다.
+- 엔티티는 `room/domain`, `user/domain` 등 도메인 패키지 `domain` 하위에 둔다.
+- JPA 연관관계와 `@Table`, `@Column` 제약(길이, nullable, unique, index, FK)을 명확히 설정한다.
+- enum은 `@Enumerated(EnumType.STRING)`을 기본으로 사용하고, DB 상태 값은 대문자 enum 문자열로 통일한다.
+- MongoDB 조회 패턴을 변경할 때는 인덱스, 조회 로직, DTO를 함께 검토한다.
+- JPA 테스트는 H2 in-memory DB를 사용한다.
+- Redis/Mongo 의존 통합 테스트는 Testcontainers를 사용한다. 상세는 `testing.md`를 따른다.
+
+## 4. 테스트/검증 규칙(백엔드)
+
+- 기능 구현/수정 시 테스트를 추가하거나 갱신한다.
+- 엔드포인트, DTO, 저장소 스키마, 인증 정책 변경 시 `README.md`, `SPEC.md`, `PLAN.md`, `testing.md` 중 관련 문서를 함께 갱신한다.
+- 가능하면 아래 검증을 수행하고 결과를 Phase `verification.md`에 기록한다.
 
 ```bash
 ./gradlew test
 ./gradlew build
 ```
 
----
+## 5. 문서 갱신 규칙(백엔드)
 
-## 12. 참조 문서
-
-문서 트리와 위임 규칙은 최상위 [`AGENTS.md`](../AGENTS.md) §3을 따른다.
-
-백엔드 작업 시 참조·갱신 대상:
-
-| 문서 | 경로 | 갱신 기준 |
-| --- | --- | --- |
-| README | `backend/README.md` | 실행 방법, 주요 API, 환경변수, 패키지 구조 변경 |
-| RESEARCH | `backend/RESEARCH.md` | 기술 선택, 라이브러리 비교, API 제약 조사 추가 |
-| PLAN | `backend/PLAN.md` | 백엔드 todo, 우선순위, 검증 계획 변경 |
-| SPEC | `backend/SPEC.md` | API 계약, DTO, 인증·저장소·에러 처리 명세 변경 |
-| 테스트 | `backend/testing.md` | 테스트 전략, Testcontainers, 실행 방법 변경 |
-
-갱신 순서:
-
-1. 변경 내용을 `backend/` 문서에 기록한다.
-2. 여러 영역에 영향이 있으면 최상위 `README.md`, `PLAN.md`, `SPEC.md`에 요약과 링크를 반영한다.
-3. 영역 `PLAN.md`의 Phase가 완료되면 `.codex/markdown/backend/phase-{번호}/implementation.md`, `verification.md`를 작성한다.
+- Phase 조사 진행 중에는 `.codex/markdown/backend/phase-{번호}/research.md`에 기록한다.
+- Phase 완료 시 `research.md` 내용을 요약해 `backend/RESEARCH.md`에 정리한다.
+- 기능 동작/계약이 바뀌면 `backend/SPEC.md`를 갱신한다.
+- 실행 방법/환경/진입점이 바뀌면 `backend/README.md`를 갱신한다.

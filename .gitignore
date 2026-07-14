@@ -3,6 +3,7 @@
 # Cursor/VSCode/Codex
 .cursor/
 .vscode/
+.codex/openai-docs-cache/
 
 # Node
 **/node_modules/
