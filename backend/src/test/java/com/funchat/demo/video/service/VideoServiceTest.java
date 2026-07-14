@@ -30,6 +30,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -55,6 +57,9 @@ class VideoServiceTest {
 
     @MockitoBean
     private ChatFanoutBroker chatFanoutBroker;
+
+    @MockitoBean
+    private LiveKitRoomAdminClient liveKitRoomAdminClient;
 
     @Test
     @DisplayName("방 참여자는 영상 세션을 시작할 수 있고 기존 활성 세션을 재사용한다")
@@ -132,6 +137,29 @@ class VideoServiceTest {
         assertThat(ended.endedAt()).isNotNull();
         assertThat(session.getStatus()).isEqualTo(VideoSessionStatus.ENDED);
         assertThat(session.getEndedAt()).isNotNull();
+        verify(liveKitRoomAdminClient).deleteRoom(started.livekitRoomName());
+    }
+
+    @Test
+    @DisplayName("LiveKit 방 정리에 실패하면 영상 세션을 활성 상태로 유지한다")
+    void endSession_WhenLiveKitCleanupFails_KeepsSessionActive() {
+        TestRoom testRoom = saveRoom("영상방", 5);
+        VideoSessionResponse started = videoService.startSession(testRoom.room().getId(), testRoom.manager().getId());
+        doThrow(new BusinessException(ErrorCode.VIDEO_ROOM_CLEANUP_FAILED))
+                .when(liveKitRoomAdminClient)
+                .deleteRoom(started.livekitRoomName());
+
+        assertThatThrownBy(() -> videoService.endSession(
+                testRoom.room().getId(),
+                started.sessionId(),
+                testRoom.manager().getId()
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VIDEO_ROOM_CLEANUP_FAILED);
+
+        VideoSession session = videoSessionRepository.findById(started.sessionId()).orElseThrow();
+        assertThat(session.getStatus()).isEqualTo(VideoSessionStatus.ACTIVE);
+        assertThat(session.getEndedAt()).isNull();
     }
 
     @Test

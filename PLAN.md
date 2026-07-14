@@ -131,8 +131,8 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 - [x] `LiveKitProperties` 구성 추가: API key, secret, endpoint, token TTL
 - [x] LiveKit room name 생성 정책 구현
 - [x] 방 참여자에게만 LiveKit access token 발급
-- [ ] 세션 종료 시 LiveKit room 정리 연동
-- [ ] SDK/API 실패 시 에러 처리와 재시도 범위 정의
+- [x] 세션 종료 시 LiveKit room 정리 연동
+- [x] SDK/API 실패 시 에러 처리와 재시도 범위 정의: 자동 재시도 없이 실패 응답, 세션 ACTIVE 유지 후 관리자 재요청
 - [x] token claim 검증 가능한 테스트 추가
 
 ### Phase 3: 로컬 인프라

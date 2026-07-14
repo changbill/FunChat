@@ -58,6 +58,7 @@ public enum ErrorCode {
     // 영상
     VIDEO_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 영상 세션을 찾을 수 없습니다."),
     VIDEO_CONFIG_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "영상 서버 설정이 올바르지 않습니다."),
+    VIDEO_ROOM_CLEANUP_FAILED(HttpStatus.BAD_GATEWAY, "영상 방 정리에 실패했습니다."),
 
     // 요청 제한
 //    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.")

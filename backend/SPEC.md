@@ -34,8 +34,6 @@ FunChat 백엔드는 다음 책임을 가집니다.
 - `message`: 응답 메시지
 - `body`: 실제 응답 데이터, 없으면 `null`
 
-Controller는 `ResponseUtil.createSuccessResponse(body)`를 사용합니다. 실패 응답은 공통 예외 처리 흐름에서 `ResponseUtil.createErrorResponse(...)` 패턴을 유지합니다.
-
 실패 응답 예시:
 
 ```json
@@ -50,34 +48,28 @@ Controller는 `ResponseUtil.createSuccessResponse(body)`를 사용합니다. 실
 
 대표 에러 코드:
 
-| HTTP status | 메시지 | 대표 상황 |
-| --- | --- | --- |
-| 400 | 요청 값이 올바르지 않습니다. | 요청 DTO 검증 실패, JSON 파싱 실패 |
-| 401 | 액세스 토큰이 존재하지 않습니다. | 인증 필요 API에 access token 누락 |
-| 401 | 유효하지 않은 Access 토큰입니다. | 변조된 access token 또는 잘못된 token type |
-| 401 | 이미 로그아웃된 토큰입니다. | Redis 블랙리스트에 등록된 access token 사용 |
-| 403 | 방장만 수행할 수 있는 작업입니다. | 방 수정/삭제/위임 권한 없음 |
-| 403 | 해당 채팅방의 참여자가 아닙니다. | STOMP 구독/전송 또는 매니저 위임 대상 검증 실패 |
-| 404 | 요청한 채팅방을 찾을 수 없습니다. | 존재하지 않는 roomId 조회 또는 입장 |
-| 404 | 요청한 사용자를 찾을 수 없습니다. | 존재하지 않는 userId 사용 |
-| 404 | 활성 영상 세션을 찾을 수 없습니다. | 활성 영상 세션 조회/종료 시 세션 없음 |
-| 409 | 채팅방 인원이 가득 찼습니다. | 정원 초과 입장 |
-| 409 | 이미 참여 중인 채팅방입니다. | 같은 방 또는 다른 방 중복 입장 |
-| 500 | 메시지 전송에 실패했습니다. | Redis Streams 저장 경로 발행 실패 |
-| 500 | 영상 서버 설정이 올바르지 않습니다. | LiveKit API key/secret/url 설정 누락 |
-
-### Controller 작성 패턴
-
-- `@RestController`와 `@RequestMapping("/api/...")`를 사용합니다.
-- 입력 DTO는 `@RequestBody`로 받고, 필요한 경우 `@Valid`를 적용합니다.
-- 인증 사용자 정보는 `@AuthenticationPrincipal`로 받습니다.
-- Controller에서 컬렉션 필터링, 정렬, 권한 판단 같은 비즈니스 로직을 구현하지 않습니다.
+| HTTP status | 메시지                              | 대표 상황                                       |
+| ----------- | ----------------------------------- | ----------------------------------------------- |
+| 400         | 요청 값이 올바르지 않습니다.        | 요청 DTO 검증 실패, JSON 파싱 실패              |
+| 401         | 액세스 토큰이 존재하지 않습니다.    | 인증 필요 API에 access token 누락               |
+| 401         | 유효하지 않은 Access 토큰입니다.    | 변조된 access token 또는 잘못된 token type      |
+| 401         | 이미 로그아웃된 토큰입니다.         | Redis 블랙리스트에 등록된 access token 사용     |
+| 403         | 방장만 수행할 수 있는 작업입니다.   | 방 수정/삭제/위임 권한 없음                     |
+| 403         | 해당 채팅방의 참여자가 아닙니다.    | STOMP 구독/전송 또는 매니저 위임 대상 검증 실패 |
+| 404         | 요청한 채팅방을 찾을 수 없습니다.   | 존재하지 않는 roomId 조회 또는 입장             |
+| 404         | 요청한 사용자를 찾을 수 없습니다.   | 존재하지 않는 userId 사용                       |
+| 404         | 활성 영상 세션을 찾을 수 없습니다.  | 활성 영상 세션 조회/종료 시 세션 없음           |
+| 409         | 채팅방 인원이 가득 찼습니다.        | 정원 초과 입장                                  |
+| 409         | 이미 참여 중인 채팅방입니다.        | 같은 방 또는 다른 방 중복 입장                  |
+| 500         | 메시지 전송에 실패했습니다.         | Redis Streams 저장 경로 발행 실패               |
+| 500         | 영상 서버 설정이 올바르지 않습니다. | LiveKit API key/secret/url 설정 누락            |
+| 502         | 영상 방 정리에 실패했습니다.        | LiveKit Admin API room 삭제 실패                |
 
 ### 인증 헤더
 
-| 목적 | Header | 형식 |
-| --- | --- | --- |
-| Access token | `Authorization` | `Bearer <access-token>` |
+| 목적          | Header                  | 형식                     |
+| ------------- | ----------------------- | ------------------------ |
+| Access token  | `Authorization`         | `Bearer <access-token>`  |
 | Refresh token | `Authorization-Refresh` | `Bearer <refresh-token>` |
 
 `/api/auth/signup`, `/api/auth/login`, `/api/auth/reissue`, `/api/auth/logout`, `/ws`, `/health`, `/actuator/**`를 제외한 HTTP API는 인증을 요구합니다.
@@ -362,7 +354,8 @@ Response body:
 - 인증 사용자가 해당 방 매니저여야 합니다.
 - 지정한 `sessionId`가 해당 방의 ACTIVE 세션이어야 합니다.
 - 성공 시 세션 상태를 `ENDED`로 변경하고 `endedAt`을 기록합니다.
-- 이번 범위에서는 FunChat DB 세션 상태만 변경합니다. 실제 LiveKit room 정리는 LiveKit Admin API 연동 단계에서 처리합니다.
+- LiveKit Admin API로 실제 room을 삭제해 연결된 참가자를 퇴장시킨 뒤 FunChat DB 세션을 종료합니다.
+- LiveKit 호출이 실패하면 `502 영상 방 정리에 실패했습니다.`를 반환하고 DB 세션은 `ACTIVE`로 유지합니다. 자동 재시도하지 않으며 관리자가 종료 요청을 다시 실행할 수 있습니다.
 
 Response body: `VideoSessionResponse`
 
@@ -374,10 +367,10 @@ Response body: `VideoSessionResponse`
 
 Query:
 
-| 이름 | 필수 | 기본값 | 설명 |
-| --- | --- | --- | --- |
-| `cursorId` | 아니오 | 없음 | 다음 페이지 시작 기준이 되는 Mongo message id |
-| `size` | 아니오 | `100` | 조회할 메시지 수 |
+| 이름       | 필수   | 기본값 | 설명                                          |
+| ---------- | ------ | ------ | --------------------------------------------- |
+| `cursorId` | 아니오 | 없음   | 다음 페이지 시작 기준이 되는 Mongo message id |
+| `size`     | 아니오 | `100`  | 조회할 메시지 수                              |
 
 Response body:
 
@@ -464,11 +457,6 @@ Payload:
 - `User`: 계정 정보와 현재 입장한 방 관계를 저장합니다.
 - `Room`: 방 제목, 최대 인원, 매니저, 참여자 관계를 저장합니다.
 - `VideoSession`: 방별 LiveKit room 이름, 세션 상태(`ACTIVE`, `ENDED`), 시작/종료 시각을 저장합니다.
-- 엔티티는 `room/domain`, `user/domain` 등에 위치합니다.
-- `User`에서 `Room`은 `@ManyToOne` 관계로 관리합니다.
-- `Room`에서 참여자는 `@OneToMany(mappedBy = "room")` 관계로 관리합니다.
-- 엔티티는 `@Table`, `@Column` 제약(길이, nullable, unique, index, FK)을 명확히 설정합니다.
-- enum은 `@Enumerated(EnumType.STRING)`을 기본으로 사용하고, DB 상태 값은 대문자 enum 문자열로 통일합니다.
 
 ### MongoDB
 
@@ -477,7 +465,6 @@ Payload:
 - 이력 조회는 Mongo `_id` 기반 커서를 사용합니다.
 - 메시지 조회는 `_id` 내림차순 정렬과 `idLessThan(cursorId)` 형태의 커서 기반 슬라이스 조회를 사용합니다.
 - 채팅 이력 조회 패턴에 맞춰 `roomId ASC, _id DESC` 복합 인덱스(`idx_chat_message_room_id_id_desc`)를 유지합니다.
-- 조회 패턴을 변경할 때는 인덱스, 조회 로직, DTO를 함께 검토합니다.
 
 ### Redis
 
@@ -493,11 +480,6 @@ Payload:
 - Pub/Sub 팬아웃 발행 실패는 실시간 전달 실패로 기록하되, 이미 성공한 저장 경로 발행은 되돌리지 않습니다.
 - Streams 소비 중 Mongo 저장에 실패하면 ack하지 않고 pending 상태로 남겨 재처리/claim 정책의 대상이 되게 합니다.
 
-### 테스트 저장소
-
-- JPA 테스트는 H2 in-memory DB를 사용합니다.
-- Redis/Mongo 의존 통합 테스트는 Testcontainers를 사용합니다.
-
 ## 보안 요구사항
 
 - HTTP API는 stateless 인증을 유지합니다.
@@ -506,11 +488,6 @@ Payload:
 - STOMP 인증은 native header `Authorization` 정책을 유지합니다.
 - 로그아웃된 access token은 Redis 블랙리스트로 무효화합니다.
 - 인증 실패와 접근 제어 실패는 상세 메시지를 최소화합니다.
-- 민감 파라미터는 로그에서 제외합니다.
-- 예외는 도메인 예외와 공통 예외 핸들러(`GlobalExceptionHandler`)로 분리합니다.
-- 개인정보 처리는 기본 비공개 정책을 선행합니다.
-- 공유 토큰/링크 기능을 추가할 경우 만료와 1회성 제약을 우선 검토합니다.
-- Soft-delete 적용 시 마이그레이션과 조회 정책을 문서화합니다.
 
 ## 외부 연동
 
@@ -518,10 +495,4 @@ Payload:
 
 - 클라이언트는 FunChat JWT로 백엔드 `POST /api/rooms/{roomId}/video/token`을 호출해 LiveKit 참가 토큰을 받습니다.
 - 클라이언트는 응답의 `livekitUrl`, `livekitRoomName`, `token`으로 LiveKit SDK에 접속하고 카메라/마이크/화면 트랙을 publish합니다.
-- 백엔드는 LiveKit Admin API 또는 webhook 처리를 아직 수행하지 않습니다. 세션 종료 동기화와 참가자 이벤트 반영은 후속 작업입니다.
-
-## 비기능 요구사항
-
-- Controller에 비즈니스 로직을 두지 않습니다.
-- 기능 구현 시 테스트를 추가하고 `gradlew test` 통과를 완료 기준으로 삼습니다.
-- 엔드포인트, DTO, 저장소 스키마, 인증 정책 변경 시 `README.md`, `SPEC.md`, `PLAN.md`, `testing.md` 중 관련 문서를 함께 갱신합니다.
+- 백엔드는 세션 종료 시 LiveKit Admin API로 room을 삭제합니다. webhook 기반 참가자 이벤트 반영은 후속 작업입니다.

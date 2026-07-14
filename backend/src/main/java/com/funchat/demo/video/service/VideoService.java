@@ -30,6 +30,7 @@ public class VideoService {
     private final UserRepository userRepository;
     private final VideoSessionRepository videoSessionRepository;
     private final LiveKitTokenProvider liveKitTokenProvider;
+    private final LiveKitRoomAdminClient liveKitRoomAdminClient;
 
     @Transactional
     public VideoSessionResponse startSession(Long roomId, Long userId) {
@@ -91,6 +92,7 @@ public class VideoService {
                 .filter(activeSession -> activeSession.getId().equals(sessionId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.VIDEO_SESSION_NOT_FOUND));
 
+        liveKitRoomAdminClient.deleteRoom(session.getLivekitRoomName());
         session.end();
 
         return VideoSessionResponse.from(session);
