@@ -4,14 +4,36 @@
 
 ---
 
+## 시스템 아키텍처
+
+![시스템 아키텍처](docs/images/system-architecture.png)
+
+---
+
+## 사용 기술
+
+| 구분             | 기술                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Backend**      | Java 21, Spring Boot 4, Spring MVC/WebMVC, Spring WebSocket(STOMP)                                          |
+| **인증·보안**    | Spring Security, JWT(`jjwt`)                                                                                |
+| **데이터 접근**  | Spring Data JPA, Spring Data MongoDB, Spring Data Redis                                                     |
+| **저장소**       | MySQL(관계형 데이터), MongoDB(채팅 이력), Redis(Streams + Pub/Sub)                                          |
+| **실시간 통신**  | STOMP over WebSocket(SockJS), LiveKit(화상 세션)                                                            |
+| **Frontend**     | React 19, React Router 7, Vite 7, SockJS + STOMP.js                                                         |
+| **모니터링**     | Spring Boot Actuator, Micrometer, Prometheus, k6(부하 테스트)                                               |
+| **테스트**       | JUnit 5, Testcontainers, Spring Security Test, H2                                                           |
+| **빌드·배포**    | Gradle, Docker, Docker Compose, Nginx(라우터/정적 서빙), Jenkins(CI/CD)                                     |
+
+---
+
 ## 배포·운영
 
-| 구분            | 설명                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| 컨테이너 이미지 | Docker Hub: `changbill/funchat-backend`, `changbill/funchat-frontend`                               |
+| 구분            | 설명                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------ |
+| 컨테이너 이미지 | Docker Hub: `changbill/funchat-backend`, `changbill/funchat-frontend`                                  |
 | CI/CD           | [Jenkinsfile](./Jenkinsfile) — 백엔드·프론트엔드 Docker 빌드 → 푸시 → 미니PC에서 `docker compose` 배포 |
-| 배포 스택       | [`deploy/`](./deploy/) — Rolling slots + Router(Nginx) + Infra(MySQL/Mongo/Redis)                   |
-| 서비스 URL      | URL: https://funchat.changee.cloud/                                                                 |
+| 배포 스택       | [`deploy/`](./deploy/) — Rolling slots + Router(Nginx) + Infra(MySQL/Mongo/Redis)                      |
+| 서비스 URL      | URL: https://funchat.changee.cloud/                                                                    |
 
 배포 healthcheck는 백엔드 `/health`를 사용한다. 이 엔드포인트는 MySQL, Redis, MongoDB 연결까지 확인하며, 롤링 슬롯 교체 후 smoke test에도 사용된다.
 
@@ -32,13 +54,13 @@ funchat/
 
 ## 에이전트 사용법
 
-| 단계 | 요청 예시 |
-| --- | --- |
+| 단계 | 요청 예시                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------ |
 | 조사 | `LiveKit webhook 서명 검증 방식 조사해서 .codex/markdown/backend/phase-2/research.md에 정리해줘` |
-| 계획 | `backend/PLAN.md에 P1 LiveKit webhook todo와 검증 계획 반영해줘` |
-| 구현 | `backend/PLAN.md P1 구현해줘` |
-| 커밋 | `지금 변경사항 커밋해줘` |
-| PR | `backend Phase 1 완료됐으니 PR 만들어줘` |
+| 계획 | `backend/PLAN.md에 P1 LiveKit webhook todo와 검증 계획 반영해줘`                                 |
+| 구현 | `backend/PLAN.md P1 구현해줘`                                                                    |
+| 커밋 | `지금 변경사항 커밋해줘`                                                                         |
+| PR   | `backend Phase 1 완료됐으니 PR 만들어줘`                                                         |
 
 상세 운영 규칙은 [`AGENTS.md`](./AGENTS.md)를 따른다.
 
@@ -107,10 +129,10 @@ com.funchat.demo/
 
 ## 3. 인프라·모니터링
 
-| 항목                         | 설명                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------- |
+| 항목                         | 설명                                                                                                           |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | [`deploy/`](./deploy/)       | Rolling 슬롯(`app-1..3`, `web-1..3`) + surge 슬롯(`app-4`, `web-4`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
-| [monitoring/](./monitoring/) | Prometheus 설정, 부하 테스트용 스크립트 등                              |
+| [monitoring/](./monitoring/) | Prometheus 설정, 부하 테스트용 스크립트 등                                                                     |
 
 ### Jenkins 배포 파일 동기화
 
@@ -120,12 +142,12 @@ LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행한다. Jenkins �
 
 ### 배포 스크립트 구조
 
-| 파일 | 역할 |
-| --- | --- |
-| [`deploy/scripts/docker-push-images.sh`](./deploy/scripts/docker-push-images.sh) | Jenkins에서 Docker Hub 로그인, 이미지 push, logout 처리 |
-| [`deploy/scripts/jenkins-remote-deploy.sh`](./deploy/scripts/jenkins-remote-deploy.sh) | Jenkins에서 원격 deploy 폴더 동기화, 임시 secret 전송, 원격 배포 실행 |
-| [`deploy/scripts/deploy-common.sh`](./deploy/scripts/deploy-common.sh) | 배포 스크립트 공통 credential 로딩, cleanup, Docker login/logout, HTTP 요청 함수 |
-| [`deploy/deploy.sh`](./deploy/deploy.sh) | 미니PC에서 실행되는 롤링 배포 본체 |
+| 파일                                                                                   | 역할                                                                             |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`deploy/scripts/docker-push-images.sh`](./deploy/scripts/docker-push-images.sh)       | Jenkins에서 Docker Hub 로그인, 이미지 push, logout 처리                          |
+| [`deploy/scripts/jenkins-remote-deploy.sh`](./deploy/scripts/jenkins-remote-deploy.sh) | Jenkins에서 원격 deploy 폴더 동기화, 임시 secret 전송, 원격 배포 실행            |
+| [`deploy/scripts/deploy-common.sh`](./deploy/scripts/deploy-common.sh)                 | 배포 스크립트 공통 credential 로딩, cleanup, Docker login/logout, HTTP 요청 함수 |
+| [`deploy/deploy.sh`](./deploy/deploy.sh)                                               | 미니PC에서 실행되는 롤링 배포 본체                                               |
 
 ### 운영 배포 방식
 
