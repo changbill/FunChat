@@ -131,7 +131,7 @@ com.funchat.demo/
 
 | 항목                         | 설명                                                                                                           |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`deploy/`](./deploy/)       | Rolling 슬롯(`app-1..3`, `web-1..3`) + surge 슬롯(`app-4`, `web-4`) + Router(Nginx) + Infra(MySQL/Mongo/Redis) |
+| [`deploy/`](./deploy/)       | Rolling 슬롯 + Router(Nginx) + Infra — [배포 명세](deploy/SPEC.md) |
 | [monitoring/](./monitoring/) | Prometheus 설정, 부하 테스트용 스크립트 등                                                                     |
 
 ### Jenkins 배포 파일 동기화
@@ -153,8 +153,7 @@ LiveKit은 `deploy/docker-compose.livekit.yml`로 별도 실행한다. Jenkins �
 
 운영 배포는 미니PC 단일 호스트에 맞춘 롤링 방식이다.
 
-- `deploy/docker-compose.rolling.yml`은 상시 슬롯 3개(`app-1..3`, `web-1..3`)와 배포 중 임시 surge 슬롯 1개(`app-4`, `web-4`)를 고정 컨테이너 이름으로 정의한다.
-- `APP_REPLICAS`는 상시 사용할 슬롯 수를 의미하며 기본값은 `3`이다. 현재 상시 슬롯은 최대 3개까지 사용한다.
+- 상시 슬롯 수와 surge 구성은 [배포 명세](deploy/SPEC.md)를 따른다.
 - `deploy/deploy.sh`는 backend 배포 시작 시 surge backend 슬롯을 한 번 생성하고, 모든 backend 슬롯 교체 동안 upstream에 유지한다.
 - frontend도 같은 방식으로 surge frontend 슬롯을 한 번 생성하고, 모든 frontend 슬롯 교체 동안 upstream에 유지한다.
 - surge 슬롯이 유지된 상태에서 기존 슬롯을 하나씩 upstream에서 제외하고 재생성하므로, 배포 중에도 라우팅 대상 수가 `APP_REPLICAS` 아래로 내려가지 않는다.

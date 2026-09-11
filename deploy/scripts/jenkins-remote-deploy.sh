@@ -16,7 +16,7 @@ require_env ENV_FILE
 require_env DOCKER_USER
 require_env DOCKER_PASS
 
-APP_REPLICAS="${APP_REPLICAS:-3}"
+APP_REPLICAS="${APP_REPLICAS:-2}"
 REMOTE="${DEPLOY_USER}@${DEPLOY_HOST}"
 SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
 REMOTE_ENV_FILE=""

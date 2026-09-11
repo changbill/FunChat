@@ -11,12 +11,7 @@
 - `deploy/deploy.sh`는 credential 로딩, 임시 파일 cleanup, Docker login/logout, HTTP 요청 공통 함수를 `deploy/scripts/deploy-common.sh`에서 가져온다.
 - 운영 배포 스크립트는 `deploy/deploy.sh`다.
 - 운영 앱 배포는 `deploy/docker-compose.rolling.yml`의 고정 슬롯을 사용한다.
-- 상시 지원 슬롯은 현재 최대 3개이고, 배포 중 임시 surge 슬롯 1개를 추가로 사용한다.
-  - backend: `funchat-app-1`, `funchat-app-2`, `funchat-app-3`
-  - frontend: `funchat-web-1`, `funchat-web-2`, `funchat-web-3`
-  - surge: `funchat-app-4`, `funchat-web-4`
-- `APP_REPLICAS`는 실제로 사용할 슬롯 수를 의미한다. 기본값은 `3`이다.
-- `MAX_APP_REPLICAS` 기본값은 `3`, `MAX_ROLLING_SLOTS` 기본값은 `4`다.
+- 상시 슬롯 수, 기본값 및 surge 구성은 [배포 명세](deploy/SPEC.md)를 따른다.
 
 ### 롤링 교체 동작
 

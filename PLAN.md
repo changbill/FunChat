@@ -267,7 +267,7 @@ MVP에서는 `VideoParticipant` 저장을 webhook 연동 후로 미루고, `Vide
 - [x] `docker compose -f deploy/docker-compose.rolling.yml config`로 compose 문법 검증
 - [x] `docker compose -f deploy/docker-compose.router.yml config`로 router compose 문법 검증
 - [x] `docker compose -f deploy/docker-compose.infra.yml config`로 infra compose 문법 검증
-- [ ] 원격 미니PC에서 `APP_REPLICAS=3` 기준 최초 배포와 재배포를 각각 확인
+- [ ] 원격 미니PC에서 `APP_REPLICAS=2` 기준 최초 배포와 재배포를 각각 확인
 - [ ] 배포 중 `/health`, `/`, 로그인 API, STOMP 연결 재연결 동작을 수동 확인
 
 남은 위험:

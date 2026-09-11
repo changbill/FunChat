@@ -9,8 +9,8 @@ pipeline {
         DEPLOY_HOST = "192.168.45.40"
         DEPLOY_USER = "changbill"
 
-        // 상시 롤링 배포 슬롯 수 (deploy/docker-compose.rolling.yml 기준 최대 3, 배포 중 surge 1개 추가)
-        APP_REPLICAS = "3"
+        // 상시 롤링 배포 슬롯 수 (기본 2개, 배포 중 surge 1개 추가)
+        APP_REPLICAS = "2"
         DOCKER_HUB_CREDS = 'docker-hub-credentials'   // 젠킨스에 등록한 Docker ID
         MINI_PC_CREDS = 'minipc-ssh-key'         // 젠킨스에 등록한 MINI PC .pem 키 ID
     }
