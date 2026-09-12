@@ -3,6 +3,7 @@ package com.funchat.demo.video.service;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
 import com.funchat.demo.room.domain.Room;
+import com.funchat.demo.room.domain.RoomType;
 import com.funchat.demo.room.domain.RoomRepository;
 import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.UserRepository;
@@ -99,8 +100,12 @@ public class VideoService {
     }
 
     private Room findRoom(Long roomId) {
-        return roomRepository.findById(roomId)
+        Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+        if (room.getRoomType() != RoomType.VIDEO) {
+            throw new BusinessException(ErrorCode.VIDEO_ROOM_REQUIRED);
+        }
+        return room;
     }
 
     private User validateParticipant(Long roomId, Long userId) {

@@ -6,6 +6,7 @@ import com.funchat.demo.global.dto.ResponseDto;
 import com.funchat.demo.room.domain.dto.RoomResponse;
 import com.funchat.demo.room.domain.dto.RoomUpdateRequest;
 import com.funchat.demo.room.service.RoomService;
+import com.funchat.demo.room.domain.RoomType;
 import com.funchat.demo.util.ResponseUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -34,9 +35,11 @@ public class RoomController {
 
     @GetMapping
     public ResponseEntity<ResponseDto> getAllRooms(
+            @RequestParam(required = false) RoomType roomType,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseUtil.createSuccessResponse(roomService.findAllRooms(pageable));
+        return ResponseUtil.createSuccessResponse(roomType == null
+                ? roomService.findAllRooms(pageable) : roomService.findAllRooms(pageable, roomType));
     }
 
     @GetMapping("/{roomId}")

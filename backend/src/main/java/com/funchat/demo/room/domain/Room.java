@@ -24,6 +24,14 @@ public class Room extends BaseTimeEntity {
     private String title;
     private Integer maxMembers;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_type", length = 16)
+    private RoomType roomType = RoomType.TEXT;
+
+    public RoomType getRoomType() {
+        return roomType == null ? RoomType.TEXT : roomType;
+    }
+
     @OneToMany(mappedBy = "room", cascade = CascadeType.PERSIST)
     private List<User> participants = new ArrayList<>();
 
@@ -43,6 +51,12 @@ public class Room extends BaseTimeEntity {
 
     public static Room createRoom(String title, Integer maxMembers, User manager) {
         return new Room(title, maxMembers, manager);
+    }
+
+    public static Room createRoom(String title, Integer maxMembers, User manager, RoomType roomType) {
+        Room room = new Room(title, maxMembers, manager);
+        room.roomType = roomType == null ? RoomType.TEXT : roomType;
+        return room;
     }
 
     public static Room createForTest(Long roomId, String title, Integer maxMembers, User manager) {

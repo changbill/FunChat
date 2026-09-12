@@ -8,10 +8,16 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ResponseDto> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseUtil.createErrorResponse(ErrorCode.INVALID_REQUEST, null);
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ResponseDto> handleBusinessException(BusinessException e) {

@@ -5,6 +5,8 @@ import com.funchat.demo.chat.service.ChatPersistBroker;
 import com.funchat.demo.global.exception.BusinessException;
 import com.funchat.demo.global.exception.ErrorCode;
 import com.funchat.demo.room.domain.Room;
+import com.funchat.demo.room.domain.RoomType;
+import com.funchat.demo.room.service.RoomService;
 import com.funchat.demo.room.domain.RoomRepository;
 import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.UserRepository;
@@ -60,6 +62,30 @@ class VideoServiceTest {
 
     @MockitoBean
     private LiveKitRoomAdminClient liveKitRoomAdminClient;
+
+    @Autowired
+    private RoomService roomService;
+
+    @Test
+    void textRoomCannotIssueVideoToken() {
+        User manager = saveUser("text-manager@test.com", "textmanager");
+        Room room = roomRepository.saveAndFlush(Room.createRoom("text", 5, manager));
+        assertThatThrownBy(() -> videoService.issueJoinToken(room.getId(), manager.getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VIDEO_ROOM_REQUIRED);
+        assertThat(videoSessionRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void lastParticipantCanLeaveVideoRoomWithSessions() {
+        TestRoom room = saveRoom("영상방", 5);
+        videoService.issueJoinToken(room.room().getId(), room.manager().getId());
+        roomService.leaveRoom(room.manager().getId());
+        roomRepository.flush();
+        assertThat(roomRepository.findById(room.room().getId())).isEmpty();
+        assertThat(videoSessionRepository.findAll()).isEmpty();
+        verify(liveKitRoomAdminClient).deleteRoom("funchat-room-" + room.room().getId());
+    }
 
     @Test
     @DisplayName("방 참여자는 영상 세션을 시작할 수 있고 기존 활성 세션을 재사용한다")
@@ -200,7 +226,7 @@ class VideoServiceTest {
 
     private TestRoom saveRoom(String title, int maxMembers) {
         User manager = saveUser("manager-" + System.nanoTime() + "@test.com", "manager" + System.nanoTime());
-        Room room = roomRepository.saveAndFlush(Room.createRoom(title, maxMembers, manager));
+        Room room = roomRepository.saveAndFlush(Room.createRoom(title, maxMembers, manager, RoomType.VIDEO));
         return new TestRoom(room, manager);
     }
 

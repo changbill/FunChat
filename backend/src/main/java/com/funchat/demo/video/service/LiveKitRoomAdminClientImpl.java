@@ -19,7 +19,7 @@ public class LiveKitRoomAdminClientImpl implements LiveKitRoomAdminClient {
     public void deleteRoom(String roomName) {
         try {
             Response<?> response = createClient().deleteRoom(roomName).execute();
-            if (!response.isSuccessful()) {
+            if (!response.isSuccessful() && response.code() != 404) {
                 throw new BusinessException(
                         ErrorCode.VIDEO_ROOM_CLEANUP_FAILED,
                         "LiveKit room cleanup failed with status " + response.code()

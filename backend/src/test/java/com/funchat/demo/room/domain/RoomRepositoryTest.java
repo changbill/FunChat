@@ -10,6 +10,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.data.domain.PageRequest;
+import jakarta.persistence.EntityManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,6 +26,29 @@ class RoomRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @Test
+    void filtersTypesBeforePaginationAndIncludesLegacyNullAsText() {
+        User first = userRepository.saveAndFlush(User.createUser("text@test.com", "password", "text", ""));
+        User second = userRepository.saveAndFlush(User.createUser("video@test.com", "password", "video", ""));
+        User third = userRepository.saveAndFlush(User.createUser("legacy@test.com", "password", "legacy", ""));
+        roomRepository.saveAndFlush(Room.createRoom("text", 5, first));
+        Room video = roomRepository.saveAndFlush(Room.createRoom("video", 5, second, RoomType.VIDEO));
+        Room legacy = roomRepository.saveAndFlush(Room.createRoom("legacy", 5, third));
+        entityManager.createNativeQuery("update room set room_type = null where id = :id")
+                .setParameter("id", legacy.getId()).executeUpdate();
+        entityManager.clear();
+
+        var textPage = roomRepository.findByType(RoomType.TEXT, RoomType.TEXT, PageRequest.of(0, 1));
+        assertThat(textPage.getTotalElements()).isEqualTo(2);
+        assertThat(textPage.getTotalPages()).isEqualTo(2);
+        assertThat(roomRepository.findById(legacy.getId()).orElseThrow().getRoomType()).isEqualTo(RoomType.TEXT);
+        assertThat(roomRepository.findByType(RoomType.VIDEO, RoomType.TEXT, PageRequest.of(0, 20)).getContent())
+                .extracting(Room::getId).containsExactly(video.getId());
+    }
 
     @Test
     @DisplayName("채팅방과 매니저/참여자 관계를 저장하고 조회한다")

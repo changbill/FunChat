@@ -1,0 +1,16 @@
+.video-panel { border: 1px solid #343948; border-radius: 20px; background: #171b25; overflow: hidden; margin-bottom: 20px; }
+.video-panel__welcome { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; text-align: center; gap: 12px; color: #aab4c8; }
+.video-panel__welcome h2 { margin: 0; color: #f1f4ff; font-size: 28px; }
+.video-panel__welcome p { margin: 0; line-height: 1.7; }
+.video-panel__symbol { width: 64px; height: 64px; display: grid; place-items: center; border: 1px solid #756cea; border-radius: 20px; color: #aca5ff; font-size: 36px; background: #292540; }
+.video-panel__status { display: flex; align-items: center; gap: 8px; padding: 14px 20px; color: #b9c4d9; font-size: 13px; }
+.video-panel__dot { width: 7px; height: 7px; border-radius: 50%; background: #6ed5b7; }
+.video-panel__grid { height: min(55vh, 560px); min-height: 280px; }
+.video-panel__controls { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 16px; }
+.video-panel__controls button { border-radius: 10px; font-size: 14px; padding: 10px 14px; }
+.video-panel__leave { background: #973d51; color: white; border: 1px solid #bf556e; cursor: pointer; }
+.video-panel__error { margin: 12px; padding: 12px 16px; background: #3a222a; color: #ffc1ce; border-radius: 10px; line-height: 1.6; }
+.video-panel [data-lk-theme] { --lk-bg: #171b25; --lk-accent-bg: #786bf0; }
+.chat-room--video { max-width: 1200px; }
+.chat-room--video .chat-room__scroll { max-height: 260px; min-height: 140px; }
+@media (max-width: 600px) { .video-panel__welcome h2 { font-size: 23px; } .video-panel__controls button { padding: 9px; } }

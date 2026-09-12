@@ -3,7 +3,7 @@ import LoginPage from './components/LoginPage'
 import SignupPage from './components/SignupPage'
 import PrivateRoute from './components/PrivateRoute'
 import RoomList from './components/RoomList'
-import ChatContainer from './components/ChatContainer'
+import RoomPage from './components/RoomPage'
 
 function App() {
   return (
@@ -23,7 +23,7 @@ function App() {
           path="/room/:roomId"
           element={
             <PrivateRoute>
-              <ChatContainer />
+              <RoomPage />
             </PrivateRoute>
           }
         />

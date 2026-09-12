@@ -175,6 +175,17 @@ Response body: `null`
 
 ## Room API
 
+### 채팅방 유형
+
+- 생성 요청의 `roomType`은 `TEXT` 또는 `VIDEO`이며 생략/null은 TEXT다. 알 수 없는 값은 400이다.
+- 모든 RoomResponse에 `roomType`을 포함한다. 유형은 생성 후 변경하지 않는다.
+- `GET /api/rooms?roomType=TEXT|VIDEO`는 DB에서 유형을 필터링한 뒤 페이지네이션한다. 생략하면 전체 목록이다.
+- 신규 `room_type` 컬럼의 기존 null 값은 TEXT로 해석한다. 현재 ddl-auto=update가 컬럼을 추가한다.
+- 일반방의 영상 API 요청은 400(영상 채팅방에서만 사용할 수 있습니다)을 반환한다.
+- 같은 방 재입장은 기존 참여 상태를 반환하며 인원/입장 알림을 중복 추가하지 않는다. 다른 방 참여 중 입장은 기존처럼 409다.
+- LiveKit 방 삭제의 404 응답은 이미 삭제된 상태로 처리한다.
+- 영상 세션이 있는 방 삭제/마지막 참여자 퇴장 시 LiveKit 방과 DB 세션을 먼저 정리한다. LiveKit 삭제 실패 시 퇴장/삭제 트랜잭션을 롤백한다.
+
 ### 채팅방 생성
 
 `POST /api/rooms`

@@ -12,7 +12,7 @@
 
   min-height: 100vh;
   box-sizing: border-box;
-  max-width: 420px;
+  max-width: 760px;
   margin: 0 auto;
   padding: 1.5rem;
   padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0));
@@ -21,6 +21,10 @@
   flex-direction: column;
   gap: 0;
 }
+
+.chat-room__connection { font-size: 12px; color: #9babc1; margin: 0 0 12px; }
+.chat-room__title { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .chat-room { padding: 18px 12px; } .chat-room__header { align-items: flex-start; } }
 
 .chat-room__header {
   display: flex;

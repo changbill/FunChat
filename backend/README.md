@@ -20,6 +20,7 @@ Spring Boot 기반 FunChat 백엔드입니다. JWT 인증, 채팅방 관리, STO
 - 이메일/비밀번호 기반 회원가입 및 로그인
 - JWT access/refresh token 발급, 재발급, 로그아웃
 - 채팅방 생성, 목록 조회, 상세 조회, 수정, 삭제
+- 일반(TEXT)/영상(VIDEO) 유형 저장과 유형별 목록 필터. 기존 방은 일반방으로 해석한다.
 - 채팅방 입장, 퇴장, 매니저 위임
 - STOMP 기반 실시간 메시지 송수신
 - Redis Streams/PubSub 기반 메시지 저장 경로와 팬아웃 경로 분리

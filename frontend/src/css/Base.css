@@ -1,0 +1,5 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #111318; color: #e4e6eb; font-family: 'Segoe UI', 'Malgun Gothic', sans-serif; }
+button, input { font-family: inherit; }
+a { color: #b3aaff; }
+button:focus-visible { outline: 2px solid #b3aaff; outline-offset: 3px; }

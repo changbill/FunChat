@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MessageInput from './MessageInput'
 import MessageList from './MessageList'
@@ -9,8 +9,13 @@ import { getAccessToken } from '../utils/auth'
 import { API_BASE } from '../utils/http'
 import { normalizeChatMessage, parseStompBody } from '../utils/chatMessage'
 import '../css/ChatRoom.css'
+const VideoPanel = lazy(() => import('./VideoPanel'))
 
-const ChatContainer = () => {
+const ChatContainer = ({ room }) => {
+  const isVideo = room?.roomType === 'VIDEO'
+  const [connected, setConnected] = useState(false)
+  const [chatError, setChatError] = useState('')
+  const [leaving, setLeaving] = useState(false)
   /** setState로 STOMP 클라이언트를 두면 연결 시마다 리렌더 → effect 재실행 → "연결 시도" 반복될 수 있음 */
   const stompClientRef = useRef(null)
   const [receivedMessages, setReceivedMessages] = useState([])
@@ -45,10 +50,11 @@ const ChatContainer = () => {
         keepalive,
       })
         .then((res) => {
-          if (!res.ok) leaveSentRef.current = false
+          if (!res.ok) { leaveSentRef.current = false; throw new Error('방에서 나가지 못했습니다. 잠시 후 다시 시도해 주세요.') }
         })
-        .catch(() => {
+        .catch((error) => {
           leaveSentRef.current = false
+          throw error
         })
     },
     [roomId],
@@ -147,6 +153,8 @@ const ChatContainer = () => {
             console.info('[STOMP] 연결됨', { roomId })
           }
           stompClientRef.current = client
+          setConnected(true)
+          setChatError('')
           client.subscribe(
             `/sub/chat/${roomId}`,
             (message) => {
@@ -162,6 +170,7 @@ const ChatContainer = () => {
           )
         },
         (error) => {
+          if (!cancelled) { setConnected(false); setChatError('채팅 연결이 끊겼습니다. 새로고침하여 다시 연결해 주세요.') }
           if (!cancelled && import.meta.env.DEV) {
             console.warn('STOMP 연결 실패', error)
           }
@@ -225,19 +234,14 @@ const ChatContainer = () => {
   }, [roomId])
 
   useEffect(() => {
-    const onPageHide = () => {
-      void callLeaveApi(true)
-    }
-    window.addEventListener('pagehide', onPageHide)
     return () => {
-      window.removeEventListener('pagehide', onPageHide)
-      void callLeaveApi(true)
+      void callLeaveApi(true).catch(() => {})
     }
   }, [callLeaveApi])
 
   const sendMessage = () => {
     const client = stompClientRef.current
-    if (client && inputMessage.trim()) {
+    if (client?.connected && inputMessage.trim()) {
       const text = inputMessage.trim()
       client.send(
         '/pub/chat/message',
@@ -256,7 +260,9 @@ const ChatContainer = () => {
   }
 
   const endConnection = async () => {
-    await callLeaveApi(false)
+    if (leaving) return
+    setLeaving(true)
+    try { await callLeaveApi(false) } catch (error) { setChatError(error.message); setLeaving(false); return }
 
     const client = stompClientRef.current
     if (client) {
@@ -271,16 +277,17 @@ const ChatContainer = () => {
   }
 
   return (
-    <section className="chat-room">
+    <section className={`chat-room ${isVideo ? 'chat-room--video' : ''}`}>
       <header className="chat-room__header">
-        <h1 className="chat-room__title">채팅방</h1>
+        <div><p className="room-list__eyebrow">{isVideo ? '영상 채팅방' : '일반 채팅방'}</p><h1 className="chat-room__title">{room?.title ?? '채팅방'}</h1></div>
         <div className="chat-room__actions">
           <button
             type="button"
             className="chat-room__leave"
             onClick={endConnection}
+            disabled={leaving}
           >
-            방 나가기
+            {leaving ? '나가는 중…' : '방 나가기'}
           </button>
           <LogoutButton
             className="chat-room__logout"
@@ -288,6 +295,10 @@ const ChatContainer = () => {
           />
         </div>
       </header>
+
+      {isVideo && <Suspense fallback={<p role="status">영상통화 화면 준비 중…</p>}><VideoPanel roomId={roomId} /></Suspense>}
+      <p className="chat-room__connection" role="status">{connected ? '● 실시간 채팅 연결됨' : chatError ? '채팅 연결 안 됨' : '채팅 연결 중…'}</p>
+      {chatError && <p className="room-list__error" role="alert">{chatError}</p>}
 
       <div className="chat-room__body">
         <div
@@ -307,6 +318,7 @@ const ChatContainer = () => {
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
           sendMessage={sendMessage}
+          disabled={!connected}
         />
       </div>
     </section>

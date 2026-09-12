@@ -5,6 +5,7 @@ import com.funchat.demo.room.domain.dto.RoomRequest;
 import com.funchat.demo.room.domain.dto.RoomResponse;
 import com.funchat.demo.room.domain.dto.RoomUpdateRequest;
 import com.funchat.demo.room.service.RoomService;
+import com.funchat.demo.room.domain.RoomType;
 import com.funchat.demo.user.domain.User;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,28 @@ class RoomControllerTest {
 
     @MockitoBean
     private RoomService roomService;
+
+    @Test
+    void createVideoRoomPassesTypeToService() throws Exception {
+        when(roomService.createRoom(new RoomRequest("video", 5, RoomType.VIDEO), 1L)).thenReturn(roomResponse());
+        mockMvc.perform(post("/api/rooms").with(authentication(authenticatedUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"video\",\"maxMembers\":5,\"roomType\":\"VIDEO\"}"))
+                .andExpect(status().isOk());
+        verify(roomService).createRoom(new RoomRequest("video", 5, RoomType.VIDEO), 1L);
+    }
+
+    @Test
+    void rejectsUnknownRoomTypeAndMissingCapacity() throws Exception {
+        mockMvc.perform(post("/api/rooms").with(authentication(authenticatedUser()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"video\",\"maxMembers\":5,\"roomType\":\"OTHER\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/rooms").with(authentication(authenticatedUser()))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"video\"}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/rooms").param("roomType", "OTHER")).andExpect(status().isBadRequest());
+    }
 
     @AfterEach
     void tearDown() {
@@ -203,7 +226,8 @@ class RoomControllerTest {
                 20,
                 1,
                 "tester",
-                LocalDateTime.of(2026, 4, 25, 12, 0)
+                LocalDateTime.of(2026, 4, 25, 12, 0),
+                RoomType.TEXT
         );
     }
 

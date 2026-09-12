@@ -289,17 +289,17 @@ class RoomServiceTest {
         }
 
         @Test
-        @DisplayName("이미 채팅방에 참여 중이면 실패")
-        void whenUserAlreadyJoinedRoom_thenThrowException() {
+        @DisplayName("같은 채팅방 재입장은 참여 상태를 유지한다")
+        void whenUserAlreadyJoinedRoom_thenReturnExistingRoom() {
             // given
             TestRoom testRoom = saveRoom("테스트 방", 5);
             User participant = saveUser("participant@test.com", "participant");
             enterParticipant(testRoom.room, participant);
 
             // when & then
-            assertThatThrownBy(() -> roomService.enterRoom(testRoom.room.getId(), participant.getId()))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ROOM_USER_ALREADY_JOINED);
+            RoomResponse response = roomService.enterRoom(testRoom.room.getId(), participant.getId());
+            assertThat(response.roomId()).isEqualTo(testRoom.room.getId());
+            assertThat(response.currentMembers()).isEqualTo(2);
         }
     }
 

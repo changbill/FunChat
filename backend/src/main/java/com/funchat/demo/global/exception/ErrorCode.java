@@ -56,6 +56,7 @@ public enum ErrorCode {
 //    MESSAGE_NOT_SENDER(HttpStatus.FORBIDDEN, "자신이 보낸 메시지만 삭제/수정할 수 있습니다."),
 
     // 영상
+    VIDEO_ROOM_REQUIRED(HttpStatus.BAD_REQUEST, "영상 채팅방에서만 사용할 수 있습니다."),
     VIDEO_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 영상 세션을 찾을 수 없습니다."),
     VIDEO_CONFIG_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "영상 서버 설정이 올바르지 않습니다."),
     VIDEO_ROOM_CLEANUP_FAILED(HttpStatus.BAD_GATEWAY, "영상 방 정리에 실패했습니다."),

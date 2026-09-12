@@ -8,6 +8,9 @@ import com.funchat.demo.room.domain.RoomRepository;
 import com.funchat.demo.room.domain.dto.RoomResponse;
 import com.funchat.demo.room.domain.dto.RoomRequest;
 import com.funchat.demo.room.domain.Room;
+import com.funchat.demo.room.domain.RoomType;
+import com.funchat.demo.video.domain.VideoSessionRepository;
+import com.funchat.demo.video.service.LiveKitRoomAdminClient;
 import com.funchat.demo.room.domain.dto.RoomUpdateRequest;
 import com.funchat.demo.user.domain.User;
 import com.funchat.demo.user.domain.UserRepository;
@@ -30,12 +33,14 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final MessageBrokerChatService messageBrokerChatService;
+    private final VideoSessionRepository videoSessionRepository;
+    private final LiveKitRoomAdminClient liveKitRoomAdminClient;
 
     @Transactional
     public RoomResponse createRoom(RoomRequest request, Long userId) {
         User manager = findUserById(userId);
 
-        Room room = Room.createRoom(request.title(), request.maxMembers(), manager);
+        Room room = Room.createRoom(request.title(), request.maxMembers(), manager, request.roomType());
         roomRepository.save(room);
 
         long roomId = room.getId();
@@ -44,7 +49,13 @@ public class RoomService {
     }
 
     public Page<RoomResponse> findAllRooms(Pageable pageable) {
-        return roomRepository.findAll(pageable)
+        return findAllRooms(pageable, null);
+    }
+
+    public Page<RoomResponse> findAllRooms(Pageable pageable, RoomType roomType) {
+        Page<Room> rooms = roomType == null ? roomRepository.findAll(pageable)
+                : roomRepository.findByType(roomType, RoomType.TEXT, pageable);
+        return rooms
                 .map(room -> {
                     long currentCount = userRepository.countByRoomId(room.getId());
                     return RoomResponse.from(room, currentCount);
@@ -103,6 +114,7 @@ public class RoomService {
             throw new BusinessException(ErrorCode.ROOM_NOT_MANAGER);
         }
 
+        cleanupVideoSessions(room);
         room.deleteSetting();
         roomRepository.delete(room);
     }
@@ -113,6 +125,10 @@ public class RoomService {
         User user = findUserById(userId);
         if (room.getBannedUserIds().contains(userId)) {
             throw new BusinessException(ErrorCode.ROOM_USER_BANNED);
+        }
+
+        if (user.getRoom() != null && user.getRoom().getId().equals(roomId)) {
+            return RoomResponse.from(room, userRepository.countByRoomId(roomId));
         }
 
         long currentCount = userRepository.countByRoomId(roomId);
@@ -142,6 +158,7 @@ public class RoomService {
                 room.delegateManager(newManager);
                 messageBrokerChatService.sendNoticeToRedisStreams(roomId, newManager.getNickname(), MessageType.DELEGATE);
             } else {
+                cleanupVideoSessions(room);
                 roomRepository.delete(room);
             }
         }
@@ -173,6 +190,14 @@ public class RoomService {
     private Room findRoomById(Long roomId) {
         return roomRepository.findById(roomId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+    }
+
+    private void cleanupVideoSessions(Room room) {
+        if (videoSessionRepository.existsByRoomId(room.getId())) {
+            liveKitRoomAdminClient.deleteRoom("funchat-room-" + room.getId());
+            videoSessionRepository.deleteByRoomId(room.getId());
+            videoSessionRepository.flush();
+        }
     }
 
     private User findUserById(Long userId) {

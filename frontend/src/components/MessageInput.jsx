@@ -1,12 +1,12 @@
-const MessageInput = ({ inputMessage, setInputMessage, sendMessage }) => {
+const MessageInput = ({ inputMessage, setInputMessage, sendMessage, disabled = false }) => {
   const onKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !disabled) {
       e.preventDefault()
       sendMessage()
     }
   }
 
-  const canSend = Boolean(inputMessage?.trim())
+  const canSend = !disabled && Boolean(inputMessage?.trim())
 
   return (
     <div className="chat-room__form">

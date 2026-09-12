@@ -17,6 +17,12 @@ class LiveKitRoomAdminClientImplTest {
 
     private HttpServer server;
 
+    @Test
+    void deleteMissingRoomIsAlreadyComplete() throws IOException {
+        LiveKitRoomAdminClientImpl client = createClient(404);
+        assertThatCode(() -> client.deleteRoom("funchat-room-1")).doesNotThrowAnyException();
+    }
+
     @AfterEach
     void stopServer() {
         if (server != null) {
