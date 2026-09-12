@@ -23,3 +23,15 @@ PR 생성은 GitHub CLI 미인증으로 미완료다.
 - [ ] 운영 Jenkins 환경 파일 확인 후 재배포(운영 환경에서 수행).
 
 Phase 2 PR 생성도 GitHub CLI 미인증으로 미완료다.
+
+## Phase 3 — LiveKit 시크릿 교체와 추적 파일 제거
+
+- [ ] `deploy/livekit.yml`에서 추적된 `keys`의 API 시크릿을 제거하고, 안전한 런타임 주입 방식으로 바꾼다.
+- [ ] 새 LiveKit API key/secret 쌍을 생성해 LiveKit 서버와 Jenkins `funchat-env`에 동시에 반영한다.
+- [ ] 기존 키/시크릿을 폐기하고 Git 이력에 남은 값이 운영에서 더 이상 유효하지 않음을 확인한다.
+- [ ] LiveKit 컨테이너 재생성, backend 재배포, 실제 영상 참가와 기존 토큰 거부를 확인한다.
+
+검증:
+- [ ] 추적 파일과 빌드 산출물에 LiveKit API 시크릿이 없는지 검사한다.
+- [ ] 새 API key로 참가 토큰 발급 및 두 클라이언트의 영상·음성 연결을 확인한다.
+- [ ] 이전 API key로 서명된 토큰이 LiveKit에서 401로 거부되는지 확인한다.
